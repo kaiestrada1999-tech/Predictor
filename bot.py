@@ -382,7 +382,7 @@ def broadcast_cmd(message):
     count = 0
     for uid in list(user_ids):
         try:
-            bot.send_message(uid, f"📢 <b>ADMIN ANNOUNCEMENT</b>\n━━━━━━━━━━━━━━━━━━━━━━\n\n{text}\n\n━━━━━━━━━━━━━━━━━━━━━━", parse_mode="HTML", protect_content=True)
+            bot.send_message(uid, f"📢 <b>𝙎𝙮𝙨𝙩𝙚𝙢 𝘼𝙣𝙣𝙤𝙪𝙣𝙘𝙚𝙢𝙚𝙣𝙩!</b>\n━━━━━━━━━━━━━━━━━━━━━━\n\n{text}\n\n━━━━━━━━━━━━━━━━━━━━━━", parse_mode="HTML", protect_content=True)
             count += 1
         except: pass
     bot.send_message(ADMIN_ID, f"✅ <b>Broadcast sent to {count} users.</b>", parse_mode="HTML", protect_content=True)
