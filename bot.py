@@ -101,7 +101,7 @@ def get_all_users():
     res = exec_turso("SELECT id FROM users")
     if not res: return set()
     rows = res.get("rows", [])
-    return {str(r[0].get("value")) for r in rows if r}
+    return {int(r[0].get("value")) for r in rows if r and r[0].get("value")}
 
 def add_user_db(uid):
     exec_turso("INSERT OR IGNORE INTO users (id) VALUES (?)", [str(uid)])
@@ -388,72 +388,87 @@ def broadcast_cmd(message):
     bot.send_message(ADMIN_ID, f"✅ <b>Broadcast sent to {count} users.</b>", parse_mode="HTML", protect_content=True)
 
 # ================= HANDLERS =================
+def init_user_session(uid):
+    if uid not in user_sessions:
+        user_sessions[uid] = {
+            "last_msg": None, 
+            "last_kb_msg": None,
+            "last_gen_time": 0, 
+            "game": None, 
+            "provider": None, 
+            "encoding": False, 
+            "casino": None, 
+            "is_logged_in": True, 
+            "gen_count": 0, 
+            "is_busy": False
+        }
+
 def is_bot_busy(uid):
-    if uid not in user_sessions: return False
+    init_user_session(uid)
     return user_sessions[uid].get("is_busy", False)
 
 def set_bot_busy(uid, status):
-    if uid not in user_sessions:
-        user_sessions[uid] = {}
+    init_user_session(uid)
     user_sessions[uid]["is_busy"] = status
 
 @bot.message_handler(commands=["start", "reset"])
 def start_cmd(message):
-    uid = str(message.from_user.id)
+    uid = message.from_user.id
     if is_bot_busy(uid): return
     set_bot_busy(uid, True)
-    
-    # Check if new for Admin Notification
-    is_new = uid not in user_ids
-    if is_new:
-        user_ids.add(uid)
-        # Turso insert in a background thread so it doesn't slow down the bot
-        def save_db():
-            add_user_db(uid)
-        t = threading.Thread(target=save_db)
-        t.daemon = True
-        t.start()
-    
-    # Reset session data if /reset is called
-    if message.text == "/reset":
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "gen_count": 0, "is_busy": False}
-    
-    # Delete previous bot message to keep chat clean
-    delete_user_past_msg(message.chat.id, uid)
-    
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0, "is_busy": False}
-
-    # Notify Admin ONLY if truly new session
-    if is_new:
-        try:
-            bot.send_message(ADMIN_ID, f"🆕 <b>NEW USER STARTED BOT</b>\nUser: {message.from_user.first_name}\nID: <code>{uid}</code>", parse_mode="HTML", protect_content=True)
-        except: pass
-
-    # INTRO SCREEN (Always show this)
-    caption = (
-        f"🛡️ <b>Welcome, {message.from_user.first_name}!</b>\n"
-        "🛡️ <b>SLOT JACKPOT READER v5.2</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "⚠️ <b>SYSTEM STATUS:</b> 🟢 <b>OPTIMIZED</b>\n"
-        "📡 <b>NETWORK:</b> <i>Encrypted Tunnel Active</i>\n\n"
-        "Welcome to the most advanced <b>RNG Pattern Recognition System</b>. Our AI uses deep-learning algorithms to decode server-side seeds and identify high-probability winning windows in real-time.\n\n"
-        "🔹 <b>Real-Time Seed Analysis:</b> Decodes live RNG sequences for precise entry points.\n"
-        "🔹 <b>Dynamic Pattern Injection:</b> Provides optimized spin sequences based on server response.\n"
-        "🔹 <b>99.2% Accuracy Rating:</b> Powered by the latest Neural Network architecture.\n\n"
-        "🚀 <b>Click the button below to initialize the system...</b>"
-    )
-    
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(types.InlineKeyboardButton("🚀 INITIALIZE SYSTEM", callback_data="intro_proceed"))
-
     try:
-        msg = bot.send_photo(message.chat.id, INTRO_IMAGE_URL, caption=caption, reply_markup=kb, parse_mode="HTML", protect_content=True)
-    except:
-        msg = bot.send_message(message.chat.id, caption, reply_markup=kb, parse_mode="HTML", protect_content=True)
-
-    user_sessions[uid]["last_msg"] = msg.message_id
-    set_bot_busy(uid, False)
+        # Check if new for Admin Notification
+        is_new = uid not in user_ids
+        if is_new:
+            user_ids.add(uid)
+            # Turso insert in a background thread so it doesn't slow down the bot
+            def save_db():
+                add_user_db(uid)
+            t = threading.Thread(target=save_db)
+            t.daemon = True
+            t.start()
+        
+        # Reset session data if /reset is called
+        if message.text == "/reset":
+            user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "gen_count": 0, "is_busy": True}
+        
+        # Delete previous bot message to keep chat clean
+        delete_user_past_msg(message.chat.id, uid)
+        
+        if uid not in user_sessions or not user_sessions[uid]:
+            user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0, "is_busy": True}
+    
+        # Notify Admin ONLY if truly new session
+        if is_new:
+            try:
+                bot.send_message(ADMIN_ID, f"🆕 <b>NEW USER STARTED BOT</b>\nUser: {message.from_user.first_name}\nID: <code>{uid}</code>", parse_mode="HTML", protect_content=True)
+            except: pass
+    
+        # INTRO SCREEN (Always show this)
+        caption = (
+            f"🛡️ <b>Welcome, {message.from_user.first_name}!</b>\n"
+            "🛡️ <b>SLOT JACKPOT READER v5.2</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "⚠️ <b>SYSTEM STATUS:</b> 🟢 <b>OPTIMIZED</b>\n"
+            "📡 <b>NETWORK:</b> <i>Encrypted Tunnel Active</i>\n\n"
+            "Welcome to the most advanced <b>RNG Pattern Recognition System</b>. Our AI uses deep-learning algorithms to decode server-side seeds and identify high-probability winning windows in real-time.\n\n"
+            "🔹 <b>Real-Time Seed Analysis:</b> Decodes live RNG sequences for precise entry points.\n"
+            "🔹 <b>Dynamic Pattern Injection:</b> Provides optimized spin sequences based on server response.\n"
+            "🔹 <b>99.2% Accuracy Rating:</b> Powered by the latest Neural Network architecture.\n\n"
+            "🚀 <b>Click the button below to initialize the system...</b>"
+        )
+        
+        kb = types.InlineKeyboardMarkup(row_width=1)
+        kb.add(types.InlineKeyboardButton("🚀 INITIALIZE SYSTEM", callback_data="intro_proceed"))
+    
+        try:
+            msg = bot.send_photo(message.chat.id, INTRO_IMAGE_URL, caption=caption, reply_markup=kb, parse_mode="HTML", protect_content=True)
+        except:
+            msg = bot.send_message(message.chat.id, caption, reply_markup=kb, parse_mode="HTML", protect_content=True)
+    
+        user_sessions[uid]["last_msg"] = msg.message_id
+    finally:
+        set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "user_login")
 def handle_user_login(call):
@@ -462,19 +477,20 @@ def handle_user_login(call):
     uid = call.from_user.id
     if is_bot_busy(uid): return
     set_bot_busy(uid, True)
-    
-    user_sessions[uid]["is_logged_in"] = True
-    
-    # Loading animation
-    msg = bot.send_message(call.message.chat.id, "⏳ <b>INITIALIZING SYSTEM...</b>", parse_mode="HTML", protect_content=True)
-    time.sleep(1)
-    bot.edit_message_text("⏳ <b>LOADING MODULES...</b>", call.message.chat.id, msg.message_id, parse_mode="HTML")
-    time.sleep(1)
-    bot.delete_message(call.message.chat.id, msg.message_id)
-    
-    # Proceed to casino selection
-    choose_casino_platform(call)
-    set_bot_busy(uid, False)
+    try:
+        user_sessions[uid]["is_logged_in"] = True
+        
+        # Loading animation
+        msg = bot.send_message(call.message.chat.id, "⏳ <b>INITIALIZING SYSTEM...</b>", parse_mode="HTML", protect_content=True)
+        time.sleep(1)
+        bot.edit_message_text("⏳ <b>LOADING MODULES...</b>", call.message.chat.id, msg.message_id, parse_mode="HTML")
+        time.sleep(1)
+        bot.delete_message(call.message.chat.id, msg.message_id)
+        
+        # Proceed to casino selection
+        choose_casino_platform(call)
+    finally:
+        set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "intro_proceed")
 def choose_casino_platform(call):
@@ -496,6 +512,7 @@ def confirm_casino_selection(call):
     try: bot.answer_callback_query(call.id)
     except: pass
     uid = call.from_user.id
+    init_user_session(uid)
     selected_casino = call.data.replace("set_casino_", "")
     user_sessions[uid]["casino"] = selected_casino
 
@@ -519,6 +536,7 @@ def confirm_casino_selection(call):
 @bot.callback_query_handler(func=lambda c: c.data == "login_clicked")
 def login_clicked_callback(call):
     uid = call.from_user.id
+    init_user_session(uid)
     user_sessions[uid]["login_clicks"] = user_sessions.get(uid, {}).get("login_clicks", 0) + 1
     selected_casino = user_sessions[uid].get("casino", "UNKNOWN")
     url = CASINO_DATA.get(selected_casino, "https://google.com")
@@ -567,6 +585,7 @@ def reset_cmd(message):
 @bot.callback_query_handler(func=lambda c: c.data == "show_pattern")
 def show_pattern_callback(call):
     uid = call.from_user.id
+    init_user_session(uid)
     pattern = user_sessions[uid].get("pattern", "No pattern available.")
     game = user_sessions[uid].get("game", "UNKNOWN")
     bot.answer_callback_query(call.id, f"GAME INJECTED: {game}\nPATTERN: {pattern}", show_alert=True)
@@ -581,34 +600,35 @@ def regenerate_btn(message):
         return
 
     set_bot_busy(uid, True)
+    try:
+        # Improved 5-second generation animation
+        msg = bot.send_message(chat_id, "🔄 <b>INITIALIZING...</b>\n<code>[▯▯▯▯▯▯▯▯▯▯] 0%</code>", parse_mode="HTML", protect_content=True)
+        
+        steps = [
+            {"icon": "📡", "text": "Connecting to Servers..."},
+            {"icon": "🧬", "text": "Extracting RNG Seed Data..."},
+            {"icon": "🛰", "text": "Matching Pattern Database..."},
+            {"icon": "🧠", "text": "Neural Network Processing..."},
+            {"icon": "✅", "text": "Signal Generation Complete!"}
+        ]
     
-    # Improved 5-second generation animation
-    msg = bot.send_message(chat_id, "🔄 <b>INITIALIZING...</b>\n<code>[▯▯▯▯▯▯▯▯▯▯] 0%</code>", parse_mode="HTML", protect_content=True)
-    
-    steps = [
-        {"icon": "📡", "text": "Connecting to Servers..."},
-        {"icon": "🧬", "text": "Extracting RNG Seed Data..."},
-        {"icon": "🛰", "text": "Matching Pattern Database..."},
-        {"icon": "🧠", "text": "Neural Network Processing..."},
-        {"icon": "✅", "text": "Signal Generation Complete!"}
-    ]
-
-    for idx, step in enumerate(steps):
-        p_bar = ["■" if i <= int((idx/4)*9) else "▯" for i in range(10)]
-        status_text = (
-            f"<b>{step['icon']} <code>{step['text']}</code></b>\n"
-            f"<code>[{''.join(p_bar)}] {int((idx/4)*100)}%</code>"
-        )
-        try:
-            bot.edit_message_text(status_text, chat_id, msg.message_id, parse_mode="HTML")
-            time.sleep(1) # Total 5 seconds for 5 steps
+        for idx, step in enumerate(steps):
+            p_bar = ["■" if i <= int((idx/4)*9) else "▯" for i in range(10)]
+            status_text = (
+                f"<b>{step['icon']} <code>{step['text']}</code></b>\n"
+                f"<code>[{''.join(p_bar)}] {int((idx/4)*100)}%</code>"
+            )
+            try:
+                bot.edit_message_text(status_text, chat_id, msg.message_id, parse_mode="HTML")
+                time.sleep(1) # Total 5 seconds for 5 steps
+            except: pass
+        
+        try: bot.delete_message(chat_id, msg.message_id)
         except: pass
-    
-    try: bot.delete_message(chat_id, msg.message_id)
-    except: pass
-    
-    run_gen_logic(chat_id, message.message_id, uid, user_sessions[uid].get("casino", "UNKNOWN"), user_sessions[uid].get("game", "UNKNOWN"), user_sessions[uid].get("provider", "UNKNOWN"))
-    set_bot_busy(uid, False)
+        
+        run_gen_logic(chat_id, message.message_id, uid, user_sessions[uid].get("casino", "UNKNOWN"), user_sessions[uid].get("game", "UNKNOWN"), user_sessions[uid].get("provider", "UNKNOWN"))
+    finally:
+        set_bot_busy(uid, False)
 
 @bot.message_handler(func=lambda m: m.text == "🔄 Change Game")
 def change_game_btn(message):
@@ -624,26 +644,27 @@ def reset_system_btn(message):
     uid = message.from_user.id
     if is_bot_busy(uid): return
     set_bot_busy(uid, True)
-    
-    # Reset animation
-    msg = bot.send_message(message.chat.id, "🔄 <b>INITIATING RESET...</b>", parse_mode="HTML", protect_content=True)
-    reset_animation(message.chat.id, msg.message_id)
-    bot.delete_message(message.chat.id, msg.message_id)
-    
-    # Delete last message
-    delete_user_past_msg(message.chat.id, uid)
-    # Clear session
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0, "is_busy": False}
-    
-    # Go directly to platform selection
-    class Call:
-        def __init__(self, message):
-            self.message = message
-            self.from_user = message.from_user
-            self.id = "0"
-    
-    choose_casino_platform(Call(message))
-    set_bot_busy(uid, False)
+    try:
+        # Reset animation
+        msg = bot.send_message(message.chat.id, "🔄 <b>INITIATING RESET...</b>", parse_mode="HTML", protect_content=True)
+        reset_animation(message.chat.id, msg.message_id)
+        bot.delete_message(message.chat.id, msg.message_id)
+        
+        # Delete last message
+        delete_user_past_msg(message.chat.id, uid)
+        # Clear session
+        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0, "is_busy": True}
+        
+        # Go directly to platform selection
+        class Call:
+            def __init__(self, message):
+                self.message = message
+                self.from_user = message.from_user
+                self.id = "0"
+        
+        choose_casino_platform(Call(message))
+    finally:
+        set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "open_menu")
 def trigger_menu(call):
@@ -652,15 +673,17 @@ def trigger_menu(call):
     uid = call.from_user.id
     if is_bot_busy(uid): return
     set_bot_busy(uid, True)
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    # SYSTEM CHECK ANIMATION
-    msg = bot.send_message(call.message.chat.id, "⚙️ <b>SYSTEM CHECK...</b>", parse_mode="HTML", protect_content=True)
-    system_startup_animation(call.message.chat.id, msg.message_id)
-    bot.delete_message(call.message.chat.id, msg.message_id)
-    
-    main_menu(call.message.chat.id, uid)
-    set_bot_busy(uid, False)
+    try:
+        delete_user_past_msg(call.message.chat.id, uid)
+        
+        # SYSTEM CHECK ANIMATION
+        msg = bot.send_message(call.message.chat.id, "⚙️ <b>SYSTEM CHECK...</b>", parse_mode="HTML", protect_content=True)
+        system_startup_animation(call.message.chat.id, msg.message_id)
+        bot.delete_message(call.message.chat.id, msg.message_id)
+        
+        main_menu(call.message.chat.id, uid)
+    finally:
+        set_bot_busy(uid, False)
 
 @bot.message_handler(func=lambda m: m.text in PROVIDERS_DATA.keys())
 def show_games(message):
@@ -778,83 +801,85 @@ def run_gen(call):
     except: pass
     
     set_bot_busy(uid, True)
-    user_sessions[uid]["last_gen_time"] = time.time()
-    user_sessions[uid]["gen_count"] = user_sessions[uid].get("gen_count", 0) + 1
-    
-    # NOTIFY ADMIN OF GENERATION
-    selected_casino = user_sessions[uid].get("casino", "UNKNOWN")
-    selected_game = user_sessions[uid].get("game", "UNKNOWN")
     try:
-        bot.send_message(ADMIN_ID, f"📊 <b>SIGNAL GENERATED</b>\nUser: {call.from_user.first_name}\nID: <code>{uid}</code>\n🏛 <b>Casino:</b> {selected_casino}\n🎰 <b>Game:</b> {selected_game}", parse_mode="HTML", protect_content=True)
-    except: pass
-
-    steps = [
-        {"icon": "📡", "text": "Connecting to Servers..."},
-        {"icon": "🧬", "text": "Extracting RNG Seed Data..."},
-        {"icon": "🛰", "text": "Matching Pattern Database..."},
-        {"icon": "🧠", "text": "Neural Network Processing..."},
-        {"icon": "✅", "text": "Signal Generation Complete!"}
-    ]
-
-    for idx, step in enumerate(steps):
-        p_bar = ["■" if i <= int((idx/4)*9) else "▯" for i in range(10)]
-        status_text = (
-            f"<b>{step['icon']} <code>{step['text']}</code></b>\n"
-            f"<code>[{''.join(p_bar)}] {int((idx/4)*100)}%</code>"
-        )
+        user_sessions[uid]["last_gen_time"] = time.time()
+        user_sessions[uid]["gen_count"] = user_sessions[uid].get("gen_count", 0) + 1
+        
+        # NOTIFY ADMIN OF GENERATION
+        selected_casino = user_sessions[uid].get("casino", "UNKNOWN")
+        selected_game = user_sessions[uid].get("game", "UNKNOWN")
         try:
-            bot.edit_message_text(status_text, call.message.chat.id, call.message.message_id, parse_mode="HTML")
-            time.sleep(0.7)
+            bot.send_message(ADMIN_ID, f"📊 <b>SIGNAL GENERATED</b>\nUser: {call.from_user.first_name}\nID: <code>{uid}</code>\n🏛 <b>Casino:</b> {selected_casino}\n🎰 <b>Game:</b> {selected_game}", parse_mode="HTML", protect_content=True)
         except: pass
-
-    try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
-
-    if user_sessions[uid].get("last_kb_msg"):
-        try: bot.delete_message(call.message.chat.id, user_sessions[uid]["last_kb_msg"])
+    
+        steps = [
+            {"icon": "📡", "text": "Connecting to Servers..."},
+            {"icon": "🧬", "text": "Extracting RNG Seed Data..."},
+            {"icon": "🛰", "text": "Matching Pattern Database..."},
+            {"icon": "🧠", "text": "Neural Network Processing..."},
+            {"icon": "✅", "text": "Signal Generation Complete!"}
+        ]
+    
+        for idx, step in enumerate(steps):
+            p_bar = ["■" if i <= int((idx/4)*9) else "▯" for i in range(10)]
+            status_text = (
+                f"<b>{step['icon']} <code>{step['text']}</code></b>\n"
+                f"<code>[{''.join(p_bar)}] {int((idx/4)*100)}%</code>"
+            )
+            try:
+                bot.edit_message_text(status_text, call.message.chat.id, call.message.message_id, parse_mode="HTML")
+                time.sleep(0.7)
+            except: pass
+    
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
-
-    ph_now = datetime.utcnow() + timedelta(hours=8)
-    v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
-
-    fake_id = str(uuid.uuid4())[:8].upper()
-
-    current_provider = user_sessions[uid].get('provider', '')
-    if "PG" in current_provider.upper():
-        valid_signals = [s for s in SIGNALS if "Turbo" not in s]
-    else:
-        valid_signals = SIGNALS
     
-    if not valid_signals:
-        valid_signals = SIGNALS
-
-    result_text = (
-        f"📡 <b>SIGNAL DETECTED</b> <code>#{fake_id}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🎯 <b>Target:</b> {user_sessions[uid].get('game')}\n"
-        f"🎰 <b>Provider:</b> {user_sessions[uid].get('provider')}\n"
-        f"📊 <b>Probability:</b> {random.uniform(96, 99):.2f}%\n"
-        f"⚡ <b>Volatility:</b> HIGH\n"
-        f"⏰ <b>Valid Until:</b> {v_until}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💡 <i>Click the button below to reveal the injection pattern.</i>"
-    )
-
-    user_sessions[uid]["result_text"] = result_text
-    user_sessions[uid]["pattern"] = random.choice(valid_signals)
-    user_sessions[uid]["encoding"] = True 
-    session_id = str(uuid.uuid4())
-    user_sessions[uid]["encoding_id"] = session_id
+        if user_sessions[uid].get("last_kb_msg"):
+            try: bot.delete_message(call.message.chat.id, user_sessions[uid]["last_kb_msg"])
+            except: pass
     
-    # Send message initially without buttons
-    msg = bot.send_message(call.message.chat.id, result_text, parse_mode="HTML", protect_content=True)
-    user_sessions[uid]["last_msg"] = msg.message_id
-    user_sessions[uid]["last_kb_msg"] = None
-
-    t = threading.Thread(target=live_encoding_animation, args=(call.message.chat.id, msg.message_id, uid, selected_game, session_id))
-    t.daemon = True
-    t.start()
-    set_bot_busy(uid, False)
+        ph_now = datetime.utcnow() + timedelta(hours=8)
+        v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
+    
+        fake_id = str(uuid.uuid4())[:8].upper()
+    
+        current_provider = user_sessions[uid].get('provider', '')
+        if "PG" in current_provider.upper():
+            valid_signals = [s for s in SIGNALS if "Turbo" not in s]
+        else:
+            valid_signals = SIGNALS
+        
+        if not valid_signals:
+            valid_signals = SIGNALS
+    
+        result_text = (
+            f"📡 <b>SIGNAL DETECTED</b> <code>#{fake_id}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🎯 <b>Target:</b> {user_sessions[uid].get('game')}\n"
+            f"🎰 <b>Provider:</b> {user_sessions[uid].get('provider')}\n"
+            f"📊 <b>Probability:</b> {random.uniform(96, 99):.2f}%\n"
+            f"⚡ <b>Volatility:</b> HIGH\n"
+            f"⏰ <b>Valid Until:</b> {v_until}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💡 <i>Click the button below to reveal the injection pattern.</i>"
+        )
+    
+        user_sessions[uid]["result_text"] = result_text
+        user_sessions[uid]["pattern"] = random.choice(valid_signals)
+        user_sessions[uid]["encoding"] = True 
+        session_id = str(uuid.uuid4())
+        user_sessions[uid]["encoding_id"] = session_id
+        
+        # Send message initially without buttons
+        msg = bot.send_message(call.message.chat.id, result_text, parse_mode="HTML", protect_content=True)
+        user_sessions[uid]["last_msg"] = msg.message_id
+        user_sessions[uid]["last_kb_msg"] = None
+    
+        t = threading.Thread(target=live_encoding_animation, args=(call.message.chat.id, msg.message_id, uid, selected_game, session_id))
+        t.daemon = True
+        t.start()
+    finally:
+        set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_game")
 def change_game_callback(call):
@@ -876,20 +901,22 @@ def change_platform_callback(call):
     
     if uid in user_sessions:
         set_bot_busy(uid, True)
-        user_sessions[uid]["encoding"] = False 
-        user_sessions[uid]["encoding_id"] = None 
-        
-        # Logout animation
-        logout_animation(call.message.chat.id, call.message.message_id)
-        time.sleep(0.5)
-        
-        # Clear specific session data
-        user_sessions[uid]["casino"] = None
-        user_sessions[uid]["game"] = None
-        user_sessions[uid]["provider"] = None
-        
-        choose_casino_platform(call)
-        set_bot_busy(uid, False)
+        try:
+            user_sessions[uid]["encoding"] = False 
+            user_sessions[uid]["encoding_id"] = None 
+            
+            # Logout animation
+            logout_animation(call.message.chat.id, call.message.message_id)
+            time.sleep(0.5)
+            
+            # Clear specific session data
+            user_sessions[uid]["casino"] = None
+            user_sessions[uid]["game"] = None
+            user_sessions[uid]["provider"] = None
+            
+            choose_casino_platform(call)
+        finally:
+            set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "reset_system")
 def reset_system_callback(call):
@@ -898,19 +925,20 @@ def reset_system_callback(call):
     uid = call.from_user.id
     if is_bot_busy(uid): return
     set_bot_busy(uid, True)
-    
-    # Reset animation
-    reset_animation(call.message.chat.id, call.message.message_id)
-    time.sleep(0.5)
-    
-    # Delete last message
-    delete_user_past_msg(call.message.chat.id, uid)
-    # Clear session
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_busy": False}
-    
-    # Go directly to platform selection
-    choose_casino_platform(call)
-    set_bot_busy(uid, False)
+    try:
+        # Reset animation
+        reset_animation(call.message.chat.id, call.message.message_id)
+        time.sleep(0.5)
+        
+        # Delete last message
+        delete_user_past_msg(call.message.chat.id, uid)
+        # Clear session
+        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_busy": True}
+        
+        # Go directly to platform selection
+        choose_casino_platform(call)
+    finally:
+        set_bot_busy(uid, False)
 
 if __name__ == "__main__":
     keep_alive()
