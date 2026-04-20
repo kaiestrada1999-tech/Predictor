@@ -4,10 +4,16 @@ import time
 import os
 import threading
 import uuid
+import logging
 from datetime import datetime, timedelta
 from telebot import types
+from telebot import apihelper
 from flask import Flask
 from threading import Thread
+
+# Enable robust connection handling
+apihelper.RETRY_ON_ERROR = True
+logging.basicConfig(level=logging.INFO)
 
 # ================= KEEP-ALIVE PARA SA RENDER =================
 app = Flask('')
@@ -31,6 +37,10 @@ ADMIN_ID = 8454741864
 # URL ng Image para sa Intro
 INTRO_IMAGE_URL = "https://i.imghippo.com/files/jFEp1747BHI.png" 
 
+# ================= TURSO DB CONFIG =================
+TURSO_URL = "libsql://slot-predictor-bosslapagan-droid.aws-ap-northeast-1.turso.io"
+TURSO_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzY2NDQ1NDUsImlkIjoiMDE5ZGE4NDQtMzQwMS03Zjc3LTg0YmEtNDQxODgwMjhmNGRhIiwicmlkIjoiMzAyNjUwYTAtZjIzNy00NTQyLWJhYjMtZTFkYjNhZTA3YWI2In0.tlEA-IDHNjaC9wjmuWB0HXysEI5DNgoifMoarzVFEX7rSw7myHvZ1zoz2L5OWaqPDzGk4g0aOevyjNPz_91bCw"
+
 # ================= CASINO LINKS DATABASE =================
 CASINO_DATA = {
     "AGILA CLUB": "https://t.me/Helpslotwinbot/agilaclub",
@@ -43,10 +53,60 @@ CASINO_DATA = {
     "QUANTUM BBC ": "https://t.me/Helpslotwinbot/quantumbbc"
 }
 
-bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=10)
+bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=100)
 
 user_sessions = {}
-user_ids = set() 
+# ================= TURSO CONFIGURATION =================
+import urllib.request
+import json
+
+def exec_turso(query, args=None):
+    if not TURSO_URL or not TURSO_TOKEN:
+        return None
+    url = TURSO_URL.replace("libsql://", "https://")
+    if not url.endswith("/v2/pipeline"):
+        url = url + "/v2/pipeline"
+    
+    headers = {
+        "Authorization": f"Bearer {TURSO_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    q_dict = {"stmt": query}
+    if args:
+        q_dict["args"] = [{"type": "text", "value": str(arg)} for arg in args]
+        
+    data = {
+        "requests": [
+            {"type": "execute", "stmt": q_dict},
+            {"type": "close"}
+        ]
+    }
+    
+    try:
+        req = urllib.request.Request(url, json.dumps(data).encode('utf-8'), headers)
+        with urllib.request.urlopen(req, timeout=5) as response:
+            res = json.loads(response.read().decode('utf-8'))
+            return res.get("results", [{}])[0].get("response", {}).get("result", {})
+    except Exception as e:
+        print(f"Turso Error: {e}")
+        return None
+
+def init_db():
+    exec_turso("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY)")
+
+init_db()
+
+def get_all_users():
+    res = exec_turso("SELECT id FROM users")
+    if not res: return set()
+    rows = res.get("rows", [])
+    return {str(r[0].get("value")) for r in rows if r}
+
+def add_user_db(uid):
+    exec_turso("INSERT OR IGNORE INTO users (id) VALUES (?)", [str(uid)])
+
+user_ids = get_all_users()
 
 # ================= DATA: EXPANDED GAME LIST =================
 PROVIDERS_DATA = {
@@ -328,23 +388,41 @@ def broadcast_cmd(message):
     bot.send_message(ADMIN_ID, f"✅ <b>Broadcast sent to {count} users.</b>", parse_mode="HTML", protect_content=True)
 
 # ================= HANDLERS =================
+def is_bot_busy(uid):
+    if uid not in user_sessions: return False
+    return user_sessions[uid].get("is_busy", False)
+
+def set_bot_busy(uid, status):
+    if uid not in user_sessions:
+        user_sessions[uid] = {}
+    user_sessions[uid]["is_busy"] = status
+
 @bot.message_handler(commands=["start", "reset"])
 def start_cmd(message):
-    uid = message.from_user.id
+    uid = str(message.from_user.id)
+    if is_bot_busy(uid): return
+    set_bot_busy(uid, True)
     
     # Check if new for Admin Notification
     is_new = uid not in user_ids
-    user_ids.add(uid) 
+    if is_new:
+        user_ids.add(uid)
+        # Turso insert in a background thread so it doesn't slow down the bot
+        def save_db():
+            add_user_db(uid)
+        t = threading.Thread(target=save_db)
+        t.daemon = True
+        t.start()
     
     # Reset session data if /reset is called
     if message.text == "/reset":
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "gen_count": 0}
+        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "gen_count": 0, "is_busy": False}
     
     # Delete previous bot message to keep chat clean
     delete_user_past_msg(message.chat.id, uid)
     
     if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0}
+        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0, "is_busy": False}
 
     # Notify Admin ONLY if truly new session
     if is_new:
@@ -375,10 +453,16 @@ def start_cmd(message):
         msg = bot.send_message(message.chat.id, caption, reply_markup=kb, parse_mode="HTML", protect_content=True)
 
     user_sessions[uid]["last_msg"] = msg.message_id
+    set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "user_login")
 def handle_user_login(call):
+    try: bot.answer_callback_query(call.id)
+    except: pass
     uid = call.from_user.id
+    if is_bot_busy(uid): return
+    set_bot_busy(uid, True)
+    
     user_sessions[uid]["is_logged_in"] = True
     
     # Loading animation
@@ -390,9 +474,12 @@ def handle_user_login(call):
     
     # Proceed to casino selection
     choose_casino_platform(call)
+    set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "intro_proceed")
 def choose_casino_platform(call):
+    try: bot.answer_callback_query(call.id)
+    except: pass
     uid = call.from_user.id
     
     delete_user_past_msg(call.message.chat.id, uid)
@@ -406,6 +493,8 @@ def choose_casino_platform(call):
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_casino_"))
 def confirm_casino_selection(call):
+    try: bot.answer_callback_query(call.id)
+    except: pass
     uid = call.from_user.id
     selected_casino = call.data.replace("set_casino_", "")
     user_sessions[uid]["casino"] = selected_casino
@@ -486,6 +575,12 @@ def show_pattern_callback(call):
 def regenerate_btn(message):
     uid = message.from_user.id
     chat_id = message.chat.id
+    if is_bot_busy(uid): return
+    if (time.time() - user_sessions.get(uid, {}).get("last_gen_time", 0)) < 20:
+        bot.send_message(chat_id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...", protect_content=True)
+        return
+
+    set_bot_busy(uid, True)
     
     # Improved 5-second generation animation
     msg = bot.send_message(chat_id, "🔄 <b>INITIALIZING...</b>\n<code>[▯▯▯▯▯▯▯▯▯▯] 0%</code>", parse_mode="HTML", protect_content=True)
@@ -509,9 +604,11 @@ def regenerate_btn(message):
             time.sleep(1) # Total 5 seconds for 5 steps
         except: pass
     
-    bot.delete_message(chat_id, msg.message_id)
+    try: bot.delete_message(chat_id, msg.message_id)
+    except: pass
     
     run_gen_logic(chat_id, message.message_id, uid, user_sessions[uid].get("casino", "UNKNOWN"), user_sessions[uid].get("game", "UNKNOWN"), user_sessions[uid].get("provider", "UNKNOWN"))
+    set_bot_busy(uid, False)
 
 @bot.message_handler(func=lambda m: m.text == "🔄 Change Game")
 def change_game_btn(message):
@@ -525,6 +622,8 @@ def change_game_btn(message):
 @bot.message_handler(func=lambda m: m.text == "🔄 Reset System")
 def reset_system_btn(message):
     uid = message.from_user.id
+    if is_bot_busy(uid): return
+    set_bot_busy(uid, True)
     
     # Reset animation
     msg = bot.send_message(message.chat.id, "🔄 <b>INITIATING RESET...</b>", parse_mode="HTML", protect_content=True)
@@ -534,7 +633,7 @@ def reset_system_btn(message):
     # Delete last message
     delete_user_past_msg(message.chat.id, uid)
     # Clear session
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0}
+    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "gen_count": 0, "is_busy": False}
     
     # Go directly to platform selection
     class Call:
@@ -544,10 +643,15 @@ def reset_system_btn(message):
             self.id = "0"
     
     choose_casino_platform(Call(message))
+    set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "open_menu")
 def trigger_menu(call):
+    try: bot.answer_callback_query(call.id)
+    except: pass
     uid = call.from_user.id
+    if is_bot_busy(uid): return
+    set_bot_busy(uid, True)
     delete_user_past_msg(call.message.chat.id, uid)
     
     # SYSTEM CHECK ANIMATION
@@ -556,6 +660,7 @@ def trigger_menu(call):
     bot.delete_message(call.message.chat.id, msg.message_id)
     
     main_menu(call.message.chat.id, uid)
+    set_bot_busy(uid, False)
 
 @bot.message_handler(func=lambda m: m.text in PROVIDERS_DATA.keys())
 def show_games(message):
@@ -661,10 +766,18 @@ def run_gen_logic(chat_id, message_id, uid, casino, game, provider):
 @bot.callback_query_handler(func=lambda c: c.data == "run_gen")
 def run_gen(call):
     uid = call.from_user.id
-    if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 20:
+    if is_bot_busy(uid):
+        try: bot.answer_callback_query(call.id, "Please wait...", show_alert=True)
+        except: pass
+        return
+    if (time.time() - user_sessions.get(uid, {}).get("last_gen_time", 0)) < 20:
         bot.answer_callback_query(call.id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...", show_alert=True)
         return
 
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    
+    set_bot_busy(uid, True)
     user_sessions[uid]["last_gen_time"] = time.time()
     user_sessions[uid]["gen_count"] = user_sessions[uid].get("gen_count", 0) + 1
     
@@ -741,9 +854,12 @@ def run_gen(call):
     t = threading.Thread(target=live_encoding_animation, args=(call.message.chat.id, msg.message_id, uid, selected_game, session_id))
     t.daemon = True
     t.start()
+    set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_game")
 def change_game_callback(call):
+    try: bot.answer_callback_query(call.id)
+    except: pass
     uid = call.from_user.id
     if uid in user_sessions:
         user_sessions[uid]["encoding"] = False 
@@ -753,8 +869,13 @@ def change_game_callback(call):
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_platform")
 def change_platform_callback(call):
+    try: bot.answer_callback_query(call.id)
+    except: pass
     uid = call.from_user.id
+    if is_bot_busy(uid): return
+    
     if uid in user_sessions:
+        set_bot_busy(uid, True)
         user_sessions[uid]["encoding"] = False 
         user_sessions[uid]["encoding_id"] = None 
         
@@ -768,10 +889,15 @@ def change_platform_callback(call):
         user_sessions[uid]["provider"] = None
         
         choose_casino_platform(call)
+        set_bot_busy(uid, False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "reset_system")
 def reset_system_callback(call):
+    try: bot.answer_callback_query(call.id)
+    except: pass
     uid = call.from_user.id
+    if is_bot_busy(uid): return
+    set_bot_busy(uid, True)
     
     # Reset animation
     reset_animation(call.message.chat.id, call.message.message_id)
@@ -780,19 +906,15 @@ def reset_system_callback(call):
     # Delete last message
     delete_user_past_msg(call.message.chat.id, uid)
     # Clear session
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True}
+    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_busy": False}
     
     # Go directly to platform selection
     choose_casino_platform(call)
+    set_bot_busy(uid, False)
 
 if __name__ == "__main__":
     keep_alive()
     bot.remove_webhook()
     time.sleep(1)
     print("🚀 BOT STARTING...")
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=20)
-        except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(5)
+    bot.infinity_polling(timeout=60, long_polling_timeout=60)
