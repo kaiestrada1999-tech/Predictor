@@ -51,7 +51,24 @@ user_sessions = {}
 user_ids = set() 
 USER_IDS_FILE = "users.txt"
 
-def 
+def load_users():
+    global user_ids
+    if os.path.exists(USER_IDS_FILE):
+        try:
+            with open(USER_IDS_FILE, "r") as f:
+                ids = f.read().splitlines()
+                user_ids = set(int(uid) for uid in ids if uid.strip().isdigit())
+        except: pass
+
+def save_user(uid):
+    if uid not in user_ids:
+        user_ids.add(uid)
+        try:
+            with open(USER_IDS_FILE, "a") as f:
+                f.write(f"{uid}
+")
+        except: pass
+
 # ================= TURSO DATABASE SETUP =================
 # Persistent storage powered by Turso (libSQL)
 import libsql_client as libsql
@@ -94,25 +111,7 @@ def save_user(uid):
             print(f"New user {uid} saved to Turso.")
 
 load_users() # Initialize Turso
-:
-    global user_ids
-    if os.path.exists(USER_IDS_FILE):
-        try:
-            with open(USER_IDS_FILE, "r") as f:
-                ids = f.read().splitlines()
-                user_ids = set(int(uid) for uid in ids if uid.strip().isdigit())
-        except: pass
 
-def save_user(uid):
-    if uid not in user_ids:
-        user_ids.add(uid)
-        try:
-            with open(USER_IDS_FILE, "a") as f:
-                f.write(f"{uid}
-")
-        except: pass
-
-load_users()
 
 # ================= DATA: EXPANDED GAME LIST =================
 PROVIDERS_DATA = {
