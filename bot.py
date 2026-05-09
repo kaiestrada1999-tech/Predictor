@@ -67,6 +67,9 @@ import os
 
 class TursoDB:
     def __init__(self, url, token):
+        # Force https for better compatibility in server environments
+        if url.startswith("libsql://"):
+            url = url.replace("libsql://", "https://")
         self.client = libsql.create_client_sync(url=url, auth_token=token)
         self.init_db()
     def init_db(self):
