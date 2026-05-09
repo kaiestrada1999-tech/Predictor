@@ -75,7 +75,7 @@ import os
 
 class TursoDB:
     def __init__(self, url, token):
-        self.client = libsql.create_client_sync(url=url, authToken=token)
+        self.client = libsql.create_client_sync(url=url, auth_token=token)
         self.init_db()
     def init_db(self):
         self.client.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY)")
