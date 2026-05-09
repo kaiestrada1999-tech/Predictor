@@ -14,15 +14,15 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "BOT IS ALIVE"
+    return "SYSTEM STATUS: LIVE SYNC ACTIVE"
 
-def run():
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
 
-def keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
-    t.start()
+# Start Flask in a background thread immediately
+flask_thread = Thread(target=run_flask)
+flask_thread.daemon = True
+flask_thread.start()
 
 # ================= CONFIG =================
 TOKEN = "8531407840:AAGHkEocBiac-znOGM_m0kgaEh1gK5OXbOU"
@@ -598,14 +598,15 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
 
     # Professional "Hacking" Frames
     frames = [
-        f"⏳ <b>INJECTING CODE TO {selected_casino}</b>\n<code>[■□□□□□□□□□] 10%</code>",
-        f"⏳ <b>INJECTING CODE TO {selected_casino}</b>\n<code>[■■■□□□□□□□] 30%</code>",
-        f"⏳ <b>INJECTING CODE TO {selected_casino}</b>\n<code>[■■■■■□□□□□] 50%</code>",
-        f"⏳ <b>INJECTING CODE TO {selected_casino}</b>\n<code>[■■■■■■■□□□] 70%</code>",
-        f"⏳ <b>INJECTING CODE TO {selected_casino}</b>\n<code>[■■■■■■■■■□] 90%</code>",
-        f"⏳ <b>INJECTING CODE TO {selected_casino}</b>\n<code>[■■■■■■■■■■] 100%</code>",
-        f"🔄 <b>BYPASSING FIREWALL...</b>",
-        f"🔄 <b>SYNCING RNG SEEDS...</b>"
+        f"⏳ <b>SYNCING DATA TO {selected_casino}</b>\n<code>[■□□□□□□□□□] 10%</code>",
+        f"⏳ <b>SYNCING DATA TO {selected_casino}</b>\n<code>[■■■□□□□□□□] 30%</code>",
+        f"⏳ <b>SYNCING DATA TO {selected_casino}</b>\n<code>[■■■■■□□□□□] 50%</code>",
+        f"⏳ <b>SYNCING DATA TO {selected_casino}</b>\n<code>[■■■■■■■□□□] 70%</code>",
+        f"⏳ <b>SYNCING DATA TO {selected_casino}</b>\n<code>[■■■■■■■■■□] 90%</code>",
+        f"⏳ <b>SYNCING DATA TO {selected_casino}</b>\n<code>[■■■■■■■■■■] 100%</code>",
+        f"🟢 <b>SIGNAL LIVE & SYNCED</b>",
+        f"🟢 <b>STATUS: ACTIVE & SECURE</b>",
+        f"🟢 <b>RNG DATA STREAMING...</b>"
     ]
     i = 0
     while uid in user_sessions and user_sessions[uid].get("encoding") == True and user_sessions[uid].get("encoding_id") == session_id:
@@ -1066,7 +1067,6 @@ def run_gen(call):
     )
 
 if __name__ == "__main__":
-    keep_alive()
     bot.remove_webhook()
     time.sleep(1)
     print("🚀 BOT STARTING...")
@@ -1144,17 +1144,17 @@ def run_gen_logic(chat_id, message_id, uid, casino, game_name, provider):
     v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
     fake_id = str(uuid.uuid4())[:8].upper()
 
-    user_sessions[uid]["result_text"] = f"📡 <b>SIGNAL DETECTED</b> <code>#{fake_id}</code>\n━━━━━━━━━━━━━━━━━━━━━━\n🎯 <b>Target:</b> {game_name}\n🎰 <b>Provider:</b> {provider}\n📊 <b>Probability:</b> {random.uniform(96, 99):.2f}%\n⚡ <b>Volatility:</b> <tg-spoiler>HIGH</tg-spoiler>\n⏰ <b>Valid Until:</b> {v_until}\n━━━━━━━━━━━━━━━━━━━━━━\n💡 <i>Click reveal button below.</i>"
+    user_sessions[uid]["result_text"] = f"📡 <b>SIGNAL DETECTED</b> <code>#{fake_id}</code>\n━━━━━━━━━━━━━━━━━━━━━━\n🎯 <b>Target:</b> {game_name}\n🎰 <b>Provider:</b> {provider}\n📊 <b>Probability:</b> {random.uniform(96, 99):.2f}%\n⚡ <b>Volatility:</b> <tg-spoiler>HIGH</tg-spoiler>\n⏰ <b>Valid Until:</b> {v_until}\n🟢 <b>STATUS:</b> <code>LIVE SYNC ACTIVE</code>\n━━━━━━━━━━━━━━━━━━━━━━\n💡 <i>Login to casino first before following pattern.</i>"
     user_sessions[uid]["pattern"] = random.choice(valid_signals)
     user_sessions[uid]["encoding"] = True 
     session_id = str(uuid.uuid4())
     user_sessions[uid]["encoding_id"] = session_id
 
     inline_kb = types.InlineKeyboardMarkup(row_width=1)
-    inline_kb.add(types.InlineKeyboardButton("👁️ SHOW PATTERN", callback_data="show_pattern"), types.InlineKeyboardButton("🔄 Re-Generate Pattern", callback_data="run_gen"), types.InlineKeyboardButton("🎰 Change Game", callback_data="change_game"), types.InlineKeyboardButton("🏛 Change Platform", callback_data="change_platform"))
+    inline_kb.add(types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"), types.InlineKeyboardButton("🔄 Re-Sync RNG Data", callback_data="run_gen"), types.InlineKeyboardButton("🎰 Change Game", callback_data="change_game"), types.InlineKeyboardButton("🏛 Change Platform", callback_data="change_platform"))
     
-    bot.send_message(chat_id, user_sessions[uid]["result_text"], reply_markup=inline_kb, parse_mode="HTML")
-    threading.Thread(target=live_encoding_animation, args=(chat_id, user_sessions[uid]["last_msg"], uid, casino, session_id)).start()
+    msg = bot.send_message(chat_id, user_sessions[uid]["result_text"], reply_markup=inline_kb, parse_mode="HTML")
+    threading.Thread(target=live_encoding_animation, args=(chat_id, msg.message_id, uid, casino, session_id)).start()
 
 @bot.message_handler(func=lambda m: m.text in [g["n"] for g in PROVIDERS_DATA.get(user_sessions.get(m.from_user.id, {}).get("casino", ""), {}).get(user_sessions.get(m.from_user.id, {}).get("provider", ""), [])])
 def pick_game(message):
