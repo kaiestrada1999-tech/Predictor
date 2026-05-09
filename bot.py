@@ -16,14 +16,6 @@ app = Flask('')
 def home():
     return "SYSTEM STATUS: LIVE SYNC ACTIVE"
 
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))
-
-# Start Flask in a background thread immediately
-flask_thread = Thread(target=run_flask)
-flask_thread.daemon = True
-flask_thread.start()
-
 # ================= CONFIG =================
 TOKEN = "8531407840:AAGHkEocBiac-znOGM_m0kgaEh1gK5OXbOU"
 ADMIN_ID = 8454741864 
@@ -633,16 +625,8 @@ def delete_user_past_msg(chat_id, uid):
         except: 
             pass
 
-def main_menu(chat_id, uid):
-    delete_user_past_msg(chat_id, uid)
-    
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add(*[types.KeyboardButton(p) for p in PROVIDERS_DATA.keys()])
-    msg = bot.send_message(chat_id, "⚙️ <b>MAIN CONTROL PANEL:</b>\n━━━━━━━━━━━━━━━━━━━━━━\nSelect your preferred Slot Provider to begin analysis:", reply_markup=kb, parse_mode="HTML")
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None}
-    user_sessions[uid]["last_msg"] = msg.message_id
-    user_sessions[uid]["encoding"] = False
+# Handlers removed to avoid duplication with multi-casino logic
+# Old main_menu, show_games, pick_game moved to App.tsx generation
 
 # ================= ADMIN COMMANDS =================
 @bot.message_handler(commands=["stats"])
@@ -915,13 +899,7 @@ def trigger_menu(call):
     
     main_menu(call.message.chat.id, uid)
 
-@bot.message_handler(func=lambda m: m.text in PROVIDERS_DATA.keys())
-def show_games(message):
-    uid = message.from_user.id
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    delete_user_past_msg(message.chat.id, uid)
-    display_provider_games(message.chat.id, uid, message.text)
+# Old show_games removed
 
 @bot.message_handler(func=lambda m: m.text == "🔙 BACK")
 def back_to_prov(message): 
@@ -929,16 +907,7 @@ def back_to_prov(message):
     except: pass
     main_menu(message.chat.id, message.from_user.id)
 
-@bot.message_handler(func=lambda m: any(m.text in v for v in PROVIDERS_DATA.values()))
-def pick_game(message):
-    uid = message.from_user.id
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    delete_user_past_msg(message.chat.id, uid)
-    user_sessions[uid]["game"] = message.text
-    kb = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("🚀 ANALYZE RNG SEED", callback_data="run_gen"))
-    msg = bot.send_message(message.chat.id, f"🎯 <b>SELECTED GAME:</b> {message.text}\n━━━━━━━━━━━━━━━━━━━━━━\nClick the button below to start the analysis.", reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+# Old pick_game removed
 
 def run_gen_logic(chat_id, message_id, uid, casino, game, provider):
     if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 20:
@@ -1066,17 +1035,6 @@ def run_gen(call):
         user_sessions[uid].get("provider", "UNKNOWN")
     )
 
-if __name__ == "__main__":
-    bot.remove_webhook()
-    time.sleep(1)
-    print("🚀 BOT STARTING...")
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=1, timeout=20)
-        except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(5)
-
 
 # ================= OVERRIDDEN LOGIC FOR MULTI-CASINO PROVIDERS =================
 def display_provider_games(chat_id, uid, provider_name):
@@ -1174,3 +1132,29 @@ def show_games(message):
     except: pass
     delete_user_past_msg(message.chat.id, uid)
     display_provider_games(message.chat.id, uid, message.text)
+
+def start_bot():
+    while True:
+        try:
+            bot.remove_webhook()
+            time.sleep(1)
+            print("🚀 BOT POLLING STARTED...")
+            bot.polling(none_stop=True, interval=1, timeout=20)
+        except Exception as e:
+            print(f"Bot Error: {e}")
+            time.sleep(5)
+
+if __name__ == "__main__":
+    # In direct execution, start bot in background and run Flask in main thread
+    t = Thread(target=start_bot)
+    t.daemon = True
+    t.start()
+    
+    port = int(os.environ.get('PORT', 10000))
+    print(f"📡 SERVER STARTING ON PORT {port}...")
+    app.run(host='0.0.0.0', port=port)
+else:
+    # If imported (e.g. by gunicorn), start bot in background
+    t = Thread(target=start_bot)
+    t.daemon = True
+    t.start()
