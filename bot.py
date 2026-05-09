@@ -65,8 +65,7 @@ def save_user(uid):
         user_ids.add(uid)
         try:
             with open(USER_IDS_FILE, "a") as f:
-                f.write(f"{uid}
-")
+                f.write(f"{uid}\n")
         except: pass
 
 # ================= TURSO DATABASE SETUP =================
