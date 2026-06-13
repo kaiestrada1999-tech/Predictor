@@ -1116,7 +1116,7 @@ def handle_user_login(call):
     
     kb = types.InlineKeyboardMarkup(row_width=1)
     kb.add(
-        types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/Hibbakabot/test"),
+        types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/Helpslotwinbot/livernganalysis"),
         types.InlineKeyboardButton("🚀 PROCEED TO SYSTEM", callback_data="user_login_proceed"),
         types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home")
     )
