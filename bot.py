@@ -1024,14 +1024,14 @@ def start_cmd(message):
     # INTRO SCREEN (Always show this)
     user_fullname = (f"{message.from_user.first_name} {message.from_user.last_name}".strip() if message.from_user.last_name else message.from_user.first_name)
     caption = (
-        f"Hello, {user_fullname}!\n\n"
+        f"Magandang araw, {user_fullname}!\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🛡️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑 𝐯5.2</b>\n\n"
-        "Welcome to the most advanced <b>RNG Pattern Recognition System</b>. Our AI uses deep-learning algorithms to decode server-side seeds and identify high-probability winning windows in real-time.\n\n"
-        "🔹 <b>𝙍𝙚𝙖𝙡-𝙏𝙞𝙢𝙚 𝙎𝙚𝙚𝙙 𝘼𝙣𝙖𝙡𝙮𝙨𝙞𝙨:</b> Decodes live RNG sequences for precise entry points.\n"
-        "🔹 <b>𝘿𝙮𝙣𝙖𝙢𝙞𝙘 𝙋𝙖𝙩𝙩𝙚𝙧𝙣 𝙄𝙣𝙟𝙚𝙘𝙩𝙞𝙤𝙣:</b> Provides optimized spin sequences based on server response.\n"
-        "🔹 <b>99.8% 𝘼𝙘𝙘𝙪𝙧𝙖𝙘𝙮 𝙍𝙖𝙩𝙞𝙣𝙜:</b> Powered by the latest Neural Network architecture.\n\n"
-        "🚀 <b>Please proceed to initialize the system...</b>"
+        "🛡️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑 𝐯5.5 (𝐋𝐈𝐕𝐄 𝐔𝐏𝐃𝐀𝐓𝐄)</b>\n\n"
+        "Welcome to the most advanced <b>RNG Pattern Recognition & Seed Audit System</b>. Ang aming upgraded deep-learning architecture ay sumusuporta sa real-time seed analysis at live platform accuracy auditing.\n\n"
+        "📊 <b>𝙇𝙞𝙫𝙚 𝙍𝙉𝙂 𝙎𝙚𝙚𝙙 𝘼𝙪𝙙𝙞𝙩:</b> Nasusuri ang real-time accuracy metrics at server response bago magsimula.\n"
+        "🔹 <b>𝙍𝙚𝙖𝙡-𝙏𝙞𝙢𝙚 𝙎𝙚𝙚𝙙 𝙏𝙧𝙖𝙘𝙠𝙞𝙣𝙜:</b> Pagbasa ng live RNG sequences na may active session synchronization.\n"
+        "🔹 <b>𝘿𝙮𝙣𝙖𝙢𝙞𝙘 𝙋𝙖𝙩𝙩𝙚𝙧𝙣 𝙄𝙣𝙟𝙚𝙘𝙩𝙞𝙤𝙣:</b> Nagbibigay ng pinakamainam na spin sequences na may 99.8% precision rate.\n\n"
+        "🚀 <b>Pindutin ang Start JACKPOT READER upang tignan ang live na datos at i-initialize ang system...</b>"
     )
     
     kb = types.InlineKeyboardMarkup(row_width=1)
