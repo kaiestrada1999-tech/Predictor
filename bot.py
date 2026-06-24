@@ -17,7 +17,7 @@ def home():
     return "SYSTEM STATUS: LIVE SYNC ACTIVE"
 
 # ================= CONFIG =================
-TOKEN = "8531407840:AAHT9wcJMwO2Hkq1B46LW4Wo1aLC2tQihWU"
+TOKEN = "8531407840:AAE3p14UxYBMDNNZJR0wREci7GoIe5F5k4A"
 ADMIN_ID = "8454741864" 
 
 # URL ng Image para sa Intro
