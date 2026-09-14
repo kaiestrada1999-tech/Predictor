@@ -992,33 +992,42 @@ def choose_casino_platform(call):
     teleclaw_thinking(call.message.chat.id, "Working", duration=2, call_id=call.id)
 
     kb = types.InlineKeyboardMarkup()
-    col1_buttons = []
-    col2_buttons = []
-    col3_buttons = []
-    
     layouts = {"AGILA CLUB":1,"HAHA777":2,"JILIBET":1,"TIKLUCK":2,"BUGATTI PLAY":1}
+    
+    current_row = []
+    current_row_max = 1
     
     for casino in CASINO_DATA.keys():
         layout_cols = layouts.get(casino, 1)
+        if layout_cols not in [1, 2, 3]:
+            layout_cols = 1
         btn = types.InlineKeyboardButton(f"🏛 {casino}", callback_data=f"set_casino_{casino}")
-        if layout_cols == 3:
-            col3_buttons.append(btn)
-        elif layout_cols == 2:
-            col2_buttons.append(btn)
+        
+        if not current_row:
+            current_row.append(btn)
+            current_row_max = layout_cols
+            if len(current_row) >= current_row_max:
+                kb.row(*current_row)
+                current_row = []
+                current_row_max = 1
         else:
-            col1_buttons.append(btn)
+            if layout_cols == current_row_max and len(current_row) < current_row_max:
+                current_row.append(btn)
+                if len(current_row) >= current_row_max:
+                    kb.row(*current_row)
+                    current_row = []
+                    current_row_max = 1
+            else:
+                kb.row(*current_row)
+                current_row = [btn]
+                current_row_max = layout_cols
+                if len(current_row) >= current_row_max:
+                    kb.row(*current_row)
+                    current_row = []
+                    current_row_max = 1
     
-    # Add 1 Column buttons
-    for btn in col1_buttons:
-        kb.row(btn)
-    
-    # Add 2 Column buttons in pairs
-    for i in range(0, len(col2_buttons), 2):
-        kb.row(*col2_buttons[i:i+2])
-    
-    # Add 3 Column buttons in triples
-    for i in range(0, len(col3_buttons), 3):
-        kb.row(*col3_buttons[i:i+3])
+    if current_row:
+        kb.row(*current_row)
     
     kb.add(types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home"))
 
