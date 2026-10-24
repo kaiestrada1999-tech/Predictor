@@ -799,6 +799,20 @@ def delete_user_past_msg(chat_id, uid):
         except:
             pass
         user_sessions[uid]["last_pattern_msg_id"] = None
+    if user_sessions.get(uid, {}).get("last_guide_msg_id"):
+        try:
+            bot.delete_message(chat_id, user_sessions[uid]["last_guide_msg_id"])
+        except:
+            pass
+        user_sessions[uid]["last_guide_msg_id"] = None
+    if user_sessions.get(uid, {}).get("last_channel_msg_id"):
+        try:
+            bot.delete_message(chat_id, user_sessions[uid]["last_channel_msg_id"])
+        except:
+            pass
+        user_sessions[uid]["last_channel_msg_id"] = None
+    if uid in user_sessions:
+        user_sessions[uid]["followup_token"] = None
 
 # Handlers removed to avoid duplication with multi-casino logic
 # Old main_menu, show_games, pick_game moved to App.tsx generation
@@ -1049,7 +1063,7 @@ def handle_how_to_use(call):
         "• Gamitin ang <b>LOG IN TO START</b> portal upang maisabay ng aming AI reader ang pattern cycle sa active session ng iyong account.\n\n"
         "4️⃣ <b>DEPLOY PATTERN SEQUENCE</b>\n"
         "• Piliin ang laro at pindutin ang <b>REVEAL INJECTION PATTERN</b> upang sundin ang calibrated spin sequence bago matapos ang expiration window.\n\n"
-        "<blockquote>💬 <i>Official Channel & Support:</i> https://t.me/+emEhYhP29m41OWQ9</blockquote>"
+        "<blockquote>💬 <i>Official Channel & Support:</i> https://t.me/+4kq9FVpuAyxjYzI1</blockquote>"
     )
     msg = send_menu_bubble(call.message.chat.id, how_to_use_text, reply_markup=kb, photo=None)
     user_sessions[uid]["last_msg"] = msg.message_id
@@ -2044,8 +2058,46 @@ def handle_text_messages(message):
                 user_sessions[uid]["casino"] = cas_name
             return main_menu(message.chat.id, uid)
 
-    # Fallback response for normal chat messages - provide clear user guide so bot is responsive
+    # Fallback response for normal chat messages - with 3-10s random delay & anti-spam debounce
     save_user(uid)
+    if uid not in user_sessions:
+        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": False}
+
+    # Invalidate any pending 20-second follow-up timer because user is actively messaging
+    user_sessions[uid]["followup_token"] = None
+
+    # Immediately delete previous guide and channel messages so replies never pile up
+    for m_key in ["last_guide_msg_id", "last_channel_msg_id"]:
+        prev_m_id = user_sessions[uid].get(m_key)
+        if prev_m_id:
+            try: bot.delete_message(message.chat.id, prev_m_id)
+            except: pass
+            user_sessions[uid][m_key] = None
+
+    # Track this specific request token for anti-spam debounce
+    req_token = time.time()
+    user_sessions[uid]["last_normal_chat_token"] = req_token
+
+    # Random delay 3 to 10 seconds
+    delay_sec = random.uniform(3.0, 10.0)
+    try:
+        bot.send_chat_action(message.chat.id, "typing")
+    except:
+        pass
+    time.sleep(delay_sec)
+
+    # Check if a newer message arrived while waiting - if so, quietly abort this stale thread
+    if user_sessions[uid].get("last_normal_chat_token") != req_token:
+        return
+
+    # Delete previous messages again to guarantee no duplicates
+    for m_key in ["last_guide_msg_id", "last_channel_msg_id"]:
+        prev_m_id = user_sessions[uid].get(m_key)
+        if prev_m_id:
+            try: bot.delete_message(message.chat.id, prev_m_id)
+            except: pass
+            user_sessions[uid][m_key] = None
+
     guide_caption = (
         "👋 <b>Mabuhay! Narito ang Gabay sa Paggamit ng 𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑:</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -2066,9 +2118,46 @@ def handle_text_messages(message):
     kb.add(types.InlineKeyboardButton("❓ How to use the system?", callback_data="how_to_use"))
     
     try:
-        bot.send_message(message.chat.id, guide_caption, parse_mode="HTML", reply_markup=kb)
+        sent_g = bot.send_message(message.chat.id, guide_caption, parse_mode="HTML", reply_markup=kb)
+        if sent_g and hasattr(sent_g, "message_id"):
+            user_sessions[uid]["last_guide_msg_id"] = sent_g.message_id
     except Exception as e:
         print(f"Error sending guide fallback message: {e}")
+
+    # Start 20-second inactivity timer: only send follow-up if user does NOT reply or message for 20 seconds
+    followup_token = time.time()
+    user_sessions[uid]["followup_token"] = followup_token
+
+    def delayed_followup(chat_id, user_id, expected_token):
+        time.sleep(20)
+        # Check if user has not replied or messaged for 20 seconds
+        if user_sessions.get(user_id, {}).get("followup_token") != expected_token:
+            return
+
+        # Delete previous channel message if it exists
+        if user_sessions.get(user_id, {}).get("last_channel_msg_id"):
+            try: bot.delete_message(chat_id, user_sessions[user_id]["last_channel_msg_id"])
+            except: pass
+            user_sessions[user_id]["last_channel_msg_id"] = None
+
+        channel_caption = (
+            "📢 <b>OPISYAL NA ANUNSYO & UPDATES</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Sumali sa aming <b>Official VIP Channel</b> upang manatiling updated sa pinakabagong high-volatility jackpot signals, algorithm updates, at winning patterns ng <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b>:\n\n"
+            "👉 <b>Official Channel:</b> https://t.me/+emEhYhP29m41OWQ9\n\n"
+            "<i>Huwag palampasin ang mga live winning pattern drops at eksklusibong update!</i>"
+        )
+        ch_kb = types.InlineKeyboardMarkup(row_width=1)
+        ch_kb.add(types.InlineKeyboardButton("📢 SUMALI SA OFFICIAL CHANNEL", url="https://t.me/+emEhYhP29m41OWQ9"))
+
+        try:
+            sent_ch = bot.send_message(chat_id, channel_caption, parse_mode="HTML", reply_markup=ch_kb)
+            if sent_ch and hasattr(sent_ch, "message_id"):
+                user_sessions[user_id]["last_channel_msg_id"] = sent_ch.message_id
+        except Exception as e:
+            print(f"Error sending channel follow-up message: {e}")
+
+    threading.Thread(target=delayed_followup, args=(message.chat.id, uid, followup_token), daemon=True).start()
 
 @bot.message_handler(commands=["top5", "top10"])
 def top_games_cmd(message):
