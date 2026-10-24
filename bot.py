@@ -24,6 +24,7 @@ ADMIN_ID = os.environ.get("ADMIN_ID") or ""
 
 # URL ng Image para sa Intro
 INTRO_IMAGE_URL = "https://i.imghippo.com/files/jFEp1747BHI.png" 
+OFFICIAL_CHANNEL_URL = "https://t.me/+4kq9FVpuAyxjYzI1"
 
 # ================= CASINO LINKS DATABASE =================
 CASINO_DATA = {
@@ -811,8 +812,15 @@ def delete_user_past_msg(chat_id, uid):
         except:
             pass
         user_sessions[uid]["last_channel_msg_id"] = None
+    if user_sessions.get(uid, {}).get("last_reengagement_msg_id"):
+        try:
+            bot.delete_message(chat_id, user_sessions[uid]["last_reengagement_msg_id"])
+        except:
+            pass
+        user_sessions[uid]["last_reengagement_msg_id"] = None
     if uid in user_sessions:
         user_sessions[uid]["followup_token"] = None
+        user_sessions[uid]["active_loop_token"] = None
 
 # Handlers removed to avoid duplication with multi-casino logic
 # Old main_menu, show_games, pick_game moved to App.tsx generation
@@ -2010,6 +2018,250 @@ def show_pattern_callback(call):
     except Exception as e:
         print("Error sending pattern message:", e)
 
+# ================= ASIA TOP HIT GAMES & DYNAMIC RE-ENGAGEMENT SYSTEM =================
+ASIA_TOP_TRENDING_GAMES = [
+    "Super Ace", "Gates of Olympus", "Fortune Gems", "Fortune Gems 2", 
+    "Mahjong Ways 2", "Sweet Bonanza", "Starlight Princess", "Money Coming", 
+    "Golden Empire", "Boxing King", "Roma", "Lucky Neko", "Fortune Rabbit",
+    "Wild Bounty", "Treasures of Aztec", "Caishen Wins", "Color Game",
+    "Sugar Rush", "Dragon Hatch", "Fa Chai Shen", "Crazy Hunter"
+]
+
+TEMPLATES_5MIN = [
+    "{name}, nasa peak {last_winrate}% accuracy pa rin ang <b>{last_game}</b> sa <b>{last_casino}</b> ngayon. Tapusin mo na yung spin sequence mo habang open pa ang cycle, or subukan mo rin ang sikat na <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
+    "{name}, na-detect ng system na mataas ang hit rate ngayong oras:\n• <b>{last_casino}</b> » <b>{last_game}</b> ({last_winrate}% winrate)\n• <b>{alt_casino_1}</b> » <b>{alt_game_1}</b> (trending sa Asya)\nI-execute mo na ang calibrated spins bago mag-shift ang server seeds.",
+    "{name}, napansin ko sa live telemetry na nag-stabilize ang payout curve ng <b>{last_game}</b> sa <b>{last_casino}</b>. Magandang pagkakataon na i-spin ang pattern, o lumipat ka sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> kung gusto mo ng mas mabilis na scatter.",
+    "{name}, kung bitin ka sa takbo ng <b>{last_game}</b> sa <b>{last_casino}</b>, lumipat ka muna sa <b>{alt_casino_1}</b> para sa <b>{alt_game_1}</b> or sa <b>{alt_casino_2}</b> para sa <b>{alt_game_2}</b>. Parehong may malakas na multiplier lock ngayong session!",
+    "{name}, sayang ang na-generate nating {last_winrate}% pattern sa <b>{last_game}</b> kung hindi mo susubukan sa <b>{last_casino}</b>. I-test mo kahit low bet lang, tapos compare mo sa resulta ng <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
+    "{name}, papalapit na ang expiration ng active session seed ng <b>{last_casino}</b> para sa <b>{last_game}</b>. Buksan mo na ang laro at tapusin ang recommended sequence bago mag-reset ang platform algorithm.",
+    "{name}, eto ang quick plan bago lumipas ang oras:\n1. Tapusin ang remaining pattern sa <b>{last_game}</b> (<b>{last_casino}</b>).\n2. Kung mag-scatter agad, ilipat ang panalo sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
+    "{name}, may napansin kaming big multiplier spike sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> habang hawak mo pa ang {last_winrate}% lock sa <b>{last_game}</b> (<b>{last_casino}</b>). Pili ka sa dalawa at i-spin mo na agad.",
+    "{name}, naka-standby pa rin ang telemetry mo para sa <b>{last_game}</b> sa <b>{last_casino}</b>. Huwag mong hayaang masayang ang na-calculate na {last_winrate}% win probability.",
+    "{name}, huling paalala para sa session mo sa <b>{last_game}</b> sa <b>{last_casino}</b>: kung lilipat ka ng platform, subukan mo ang <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> or sumali ka sa official channel natin para sa bagong batch ng verified seeds.",
+    "{name}, <blockquote>⚡ [TELEMETRY LOCK ACTIVE]\nTarget: {last_game} ({last_casino})\nWinrate: {last_winrate}%</blockquote>\nI-tap mo na ang link at tapusin ang cycle, or subukan mo ang <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
+    "{name}, bukas pa ang telemetry window sa <b>{last_casino}</b> para sa <b>{last_game}</b>—i-spin mo na bago pumasok ang server refresh!",
+    "{name}, ayon sa cluster frequency, may mataas na probability ng scatter entry ang <b>{last_game}</b> sa <b>{last_casino}</b> sa susunod na 15 spins. Huwag mong i-drop ang session!",
+    "{name}, mainit ang labas ng panalo sa <b>{last_casino}</b> (<b>{last_game}</b>) at <b>{alt_casino_1}</b> (<b>{alt_game_1}</b>) ngayon. I-execute mo na ang naka-calibrate nating sequence.",
+    "{name}, sundin mo nang maigi ang turbo/normal spin ratio sa pattern ng <b>{last_game}</b> sa <b>{last_casino}</b> para ma-trigger agad ang free games.",
+    "{name}, mababa ang latency at paborable ang server RNG sa <b>{last_casino}</b> ngayon para sa <b>{last_game}</b>. Ipagpatuloy mo na ang run mo!",
+    "{name}, bukod sa <b>{last_game}</b> sa <b>{last_casino}</b>, napakaganda rin ng feedback sa <b>{alt_game_1}</b> sa ilalim ng <b>{alt_casino_1}</b>. Pili ka ng lalaruin ngayon.",
+    "{name}, na-detect ng tracker ang x100+ multiplier surge sa <b>{alt_game_1}</b> (<b>{alt_casino_1}</b>) habang active ang <b>{last_game}</b> (<b>{last_casino}</b>). Pasukin mo na!",
+    "{name}, simulan mo sa mababang bet ang pattern ng <b>{last_game}</b> sa <b>{last_casino}</b>, tapos i-raise mo kapag lumabas ang initial connect para ma-maximize ang {last_winrate}% chance.",
+    "{name}, gumagalaw ang entropy curve sa <b>{last_casino}</b>. Ituloy mo na ang natitirang spins sa <b>{last_game}</b> bago lumipat sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
+    "{name}, nasubukan mo na ba yung huling step sa pattern ng <b>{last_game}</b> sa <b>{last_casino}</b>? Kung hindi pa, i-execute mo na agad bago magpalit ng session.",
+    "{name}, targetin mo lang ang 2x to 3x profit sa <b>{last_game}</b> sa <b>{last_casino}</b>, tapos i-switch mo agad sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> para tuloy-tuloy ang panalo.",
+    "{name}, [RADAR PING] Active pa rin ang calibrated pattern mo sa <b>{last_game}</b> (<b>{last_casino}</b>). Pindutin mo na ang start bago maglaho ang signal.",
+    "{name}, subukan mong mag-speed run: 10 spins sa <b>{last_game}</b> sa <b>{last_casino}</b>, tapos 15 spins sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> gamit ang live telemetry ng bot!",
+    "{name}, naka-pause pa rin ang session mo sa <b>{last_game}</b> sa <b>{last_casino}</b>. I-resume mo na ngayon or lumipat ka sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> para hindi masayang ang oras."
+]
+
+TEMPLATES_DAILY = [
+    "{name}, eto ang top performing platforms at laro sa live audit natin ngayong araw:\n1. <b>{casino_1}</b> - <b>{game_1}</b> ({winrate_1}%)\n2. <b>{casino_2}</b> - <b>{game_2}</b> ({winrate_2}%)\nBuksan mo na ang bot at kunin ang bagong calibrated spin sequence!",
+    "{name}, [DAILY FLASH] Nakapagtala ng abnormal na payout surge ang <b>{game_1}</b> sa <b>{casino_1}</b> ngayong umaga. I-check mo agad ang active pattern bago mag-adjust ang casino algorithm.",
+    "{name}, nakapag-spin ka na ba ngayong araw? Pumapalo sa {winrate_1}% ang winning probability ng <b>{game_1}</b> sa <b>{casino_1}</b>, habang mainit din ang labas ng scatter sa <b>{game_2}</b> sa <b>{casino_2}</b>. Pili ka na ng laro sa bot!",
+    "{name}, buksan mo na ang bot ngayon para makita ang exclusive seed breakdown ng <b>{game_1}</b> sa <b>{casino_1}</b> at <b>{game_2}</b> sa <b>{casino_2}</b>.",
+    "{name}, may na-detect kaming biglaang pagtaas ng RTP sa <b>{casino_1}</b> kumpara kahapon, lalo na sa <b>{game_1}</b>. Kung maglalaro ka ngayon, diyan mo simulan ang session mo gamit ang pinakabagong pattern ng bot.",
+    "{name}, head-to-head analysis ngayong araw:\n• <b>{casino_1}</b> (<b>{game_1}</b>): Mataas ang multiplier payout ({winrate_1}%)\n• <b>{casino_2}</b> (<b>{game_2}</b>): Mas mabilis ang pasok ng free spins ({winrate_2}%)\nI-launch mo na ang bot para ma-deploy ang tamang sequence.",
+    "{name}, paalala para sa smart betting strategy mo today: simulan mo sa low stake gamit ang pattern ng <b>{game_1}</b> sa <b>{casino_1}</b>, at kung pumasok ang bonus round, ilipat sa <b>{game_2}</b> sa <b>{casino_2}</b>. Tingnan mo ang full guide sa bot!",
+    "{name}, peak volume hours ngayon sa mga casino servers. Ayon sa live logs, mas madaling tamaan ang winning combinations sa <b>{game_1}</b> sa <b>{casino_1}</b> habang mataas ang server traffic. Subukan mo na ngayon.",
+    "{name}, naka-ready na ang mga bagong updated algorithms para sa <b>{casino_1}</b> at <b>{casino_2}</b>. Pindutin mo lang ang /start para makuha agad ang live injection sequences.",
+    "{name}, target mo ba ang malalaking scatter wins today? Sa latest seed tracking, lumalabas na paborable ang timing sa <b>{game_1}</b> (<b>{casino_1}</b>) at <b>{game_2}</b> (<b>{casino_2}</b>). Buksan mo na ang bot para makuha ang calibrated spins!",
+    "{name}, 📊 [DAILY AUDIT RESULT]\nNangunguna ang <b>{casino_1}</b> na may {winrate_1}% accuracy rating para sa <b>{game_1}</b>. Huwag mong hayaang lumipas ang araw nang hindi mo ito nasusubukan gamit ang bot.",
+    "{name}, matagal-tagal ka nang hindi nakakapag-test ng telemetry. Sayang ang mga lumalabas na winning streak sa <b>{game_1}</b> sa <b>{casino_1}</b>. Bumalik ka na sa bot at kunin ang fresh patterns.",
+    "{name}, kahit minimum bet lang i-test mo: sundin mo ang 30-second sequence para sa <b>{game_1}</b> sa <b>{casino_1}</b>. Makikita mo agad ang diperensya kapag may kasamang algorithm tracking.",
+    "{name}, magandang combo laruin ngayong araw: mag-warmup ka muna sa <b>{game_1}</b> sa <b>{casino_1}</b>, tapos mag-cashout at lumipat sa <b>{game_2}</b> sa <b>{casino_2}</b>. I-check mo ang step-by-step sa bot.",
+    "{name}, ⚠️ High Volatility Alert: Na-trigger ang multiplier wave sa <b>{game_1}</b> sa ilalim ng <b>{casino_1}</b>. Kung may balance ka pa, ito ang tamang sandali para mag-deploy ng pattern.",
+    "{name}, kakatapos lang ng automated system calibration para sa araw na ito. 100% updated na ang data ng <b>{casino_1}</b> (<b>{game_1}</b>) at <b>{casino_2}</b> (<b>{game_2}</b>). I-click ang /start para masuri mo agad.",
+    "{name}, para maiwasan ang bawi ng casino: kapag tumama ka sa recommended spins ng <b>{game_1}</b> sa <b>{casino_1}</b>, mag-withdraw agad bago mag-shift sa <b>{game_2}</b> sa <b>{casino_2}</b>. Kunin mo ang pattern sa bot ngayon.",
+    "{name}, may nadiskubreng unusual winning seed ang algorithm para sa <b>{game_1}</b> sa <b>{casino_1}</b> na may {winrate_1}% success rate. Buksan mo na ang bot bago pa ito ma-patch ng provider.",
+    "{name}, saan ka maglalaro today? Mas maganda ang odds sa <b>{casino_1}</b> (<b>{game_1}</b>) kaysa sa ibang platforms ngayong araw base sa live return rate. Silipin mo ang full ranking sa bot.",
+    "{name}, huwag mong kalimutang silipin ang updated top 10 games sa bot bago ka mag-deposit sa <b>{casino_1} o {casino_2}</b>. Pwede ka ring sumali sa official channel natin para sa live player updates!",
+    "{name}, simulan mo nang maaga ang session mo: may breakout pattern sa <b>{game_1}</b> sa <b>{casino_1}</b> na nagbibigay ng maagang payout. Buksan ang bot para sa exact spin count.",
+    "{name}, 🌟 [PLATFORM SPOTLIGHT] Ang <b>{casino_1}</b> ang may hawak ng highest recorded payout ratio ngayong araw para sa <b>{game_1}</b>. I-click ang bot para makita ang active settings.",
+    "{name}, nagbagsak ng elevated multipliers ang <b>{casino_1}</b> sa <b>{game_1}</b> at <b>{casino_2}</b> sa <b>{game_2}</b>. Grab mo na ang chance habang bukas pa ang seed.",
+    "{name}, ayusin mo ang bet sizing mo ngayong araw gamit ang bot: pinakamataas ang hit consistency sa <b>{game_1}</b> sa <b>{casino_1}</b>. Kunin ang spin guide ngayon.",
+    "{name}, eto ang top 3 lineup na dapat mong tingnan ngayon:\n1. <b>{game_1}</b> (<b>{casino_1}</b>)\n2. <b>{game_2}</b> (<b>{casino_2}</b>)\n3. <b>{alt_game_1}</b> (<b>{alt_casino_1}</b>)\nNasa bot ang live winrate ng bawat isa!",
+    "{name}, lumalabas sa scatter heatmap natin na active ang bonus rounds sa <b>{game_1}</b> (<b>{casino_1}</b>). Huwag mong palampasin ang streak today.",
+    "{name}, kakatapos lang ng server sync sa <b>{casino_1}</b>. Karaniwang lumuluwag ang combinations sa <b>{game_1}</b> pagkatapos ng sync. I-check mo ang pattern ngayon.",
+    "{name}, huwag maglaro nang walang gabay: kunin muna ang calibrated spins para sa <b>{game_1}</b> sa <b>{casino_1}</b> sa pamamagitan ng /start.",
+    "{name}, 📈 [FREQUENCY REPORT] Pumapalo sa 98%+ ang accuracy rate sa <b>{casino_1}</b> (<b>{game_1}</b>) at <b>{casino_2}</b> (<b>{game_2}</b>). Pumili ka na ng lalaruin sa bot.",
+    "{name}, nasubukan mo na ba ang combo spins sa <b>{game_1}</b> sa <b>{casino_1}</b>? Sobrang bilis mag-trigger ng bonus game. Kunin ang pattern sa bot!",
+    "{name}, may payout wave ngayon ang mga laro sa <b>{casino_1}</b>, partikular sa <b>{game_1}</b>. Buksan ang bot at i-ready ang sequence.",
+    "{name}, maglaro nang may sistema: sundin ang calibrated steps sa bot para sa <b>{game_1}</b> sa <b>{casino_1}</b> para protektado ang puhunan mo.",
+    "{name}, tumataas ang active player volume sa <b>{casino_1}</b> (<b>{game_1}</b>) at <b>{casino_2}</b> (<b>{game_2}</b>). Panoorin ang pag-angat ng payout curve sa bot.",
+    "{name}, gusto mo bang malaman ang pinakamataas na winrate na laro sa <b>{casino_1}</b> ngayon? Pindutin mo lang ang /topgames sa bot para sa buong listahan!",
+    "{name}, naka-lock pa rin sa database ang verified parameters para sa <b>{game_1}</b> sa <b>{casino_1}</b>. Kunin mo na bago magpalit ng hash key.",
+    "{name}, kung naka-on ang double chance feature sa <b>{game_1}</b> sa <b>{casino_1}</b>, gamitin mo ang modified pattern ng bot para hindi masayang ang extra stake.",
+    "{name}, ⚖️ [RTP COMPARISON]\n• <b>{casino_1}</b> - <b>{game_1}</b> ({winrate_1}%)\n• <b>{casino_2}</b> - <b>{game_2}</b> ({winrate_2}%)\nI-tap ang bot para ma-load ang tamang telemetry.",
+    "{name}, para sa mga mahilig sa malalaking sabog: pumapasok sa super volatile mode ang <b>{game_1}</b> sa <b>{casino_1}</b>. Silipin ang rekomendasyon sa bot.",
+    "{name}, may natitirang window pa ang calculated winning session sa <b>{game_1}</b> sa <b>{casino_1}</b>. Simulan mo na ang spins bago matapos ang oras.",
+    "{name}, kumuha ka na ba ng signal today? Buksan ang bot para sa bagong batch ng validated spins sa <b>{casino_1}</b> at <b>{casino_2}</b>, at sumali sa official channel para sa live results!"
+]
+
+def get_dynamic_reengagement_context(uid, user_name=None):
+    if not user_name:
+        user_name = user_sessions.get(uid, {}).get("user_name", "Player")
+    safe_name = html.escape(str(user_name).strip()) or "Player"
+    
+    all_casinos = list(CASINO_DATA.keys())
+    if not all_casinos:
+        all_casinos = ["AGILA CLUB", "INFERNO PLAY", "BUGATTI PLAY"]
+        
+    last_cas = user_sessions.get(uid, {}).get("casino")
+    if not last_cas or last_cas not in all_casinos:
+        last_cas = random.choice(all_casinos)
+        
+    def get_top_asian_game_for_cas(cas_name, exclude_game=None):
+        games = []
+        if cas_name in PROVIDERS_DATA:
+            for p, glist in PROVIDERS_DATA[cas_name].items():
+                for g in glist:
+                    gn = g.get("n", "")
+                    if gn and gn != exclude_game:
+                        games.append(gn)
+        asian_matches = [g for g in games if any(ag.upper() in g.upper() for ag in ASIA_TOP_TRENDING_GAMES)]
+        if asian_matches:
+            return random.choice(asian_matches)
+        if games:
+            return random.choice(games)
+        return "Super Ace"
+
+    last_game = user_sessions.get(uid, {}).get("game")
+    if not last_game:
+        last_game = get_top_asian_game_for_cas(last_cas)
+
+    last_winrate = user_sessions.get(uid, {}).get("prob")
+    if not last_winrate:
+        last_winrate = round(random.uniform(96.8, 99.4), 2)
+    else:
+        try: last_winrate = round(float(last_winrate), 2)
+        except: last_winrate = 98.20
+
+    other_casinos = [c for c in all_casinos if c != last_cas]
+    if len(other_casinos) < 2:
+        other_casinos = other_casinos + all_casinos
+    alt_casino_1 = random.choice(other_casinos)
+    alt_casino_2 = random.choice([c for c in other_casinos if c != alt_casino_1] or all_casinos)
+
+    alt_game_1 = get_top_asian_game_for_cas(alt_casino_1, last_game)
+    alt_game_2 = get_top_asian_game_for_cas(alt_casino_2, alt_game_1)
+    
+    casino_1 = random.choice(all_casinos)
+    game_1 = get_top_asian_game_for_cas(casino_1)
+    other_for_2 = [c for c in all_casinos if c != casino_1] or all_casinos
+    casino_2 = random.choice(other_for_2)
+    game_2 = get_top_asian_game_for_cas(casino_2, game_1)
+    
+    winrate_1 = round(random.uniform(97.2, 99.4), 2)
+    winrate_2 = round(random.uniform(96.5, 98.9), 2)
+
+    return {
+        "name": safe_name,
+        "last_game": html.escape(str(last_game)),
+        "last_casino": html.escape(str(last_cas)),
+        "last_winrate": f"{last_winrate:.2f}" if isinstance(last_winrate, float) else str(last_winrate),
+        "alt_game_1": html.escape(str(alt_game_1)),
+        "alt_casino_1": html.escape(str(alt_casino_1)),
+        "alt_game_2": html.escape(str(alt_game_2)),
+        "alt_casino_2": html.escape(str(alt_casino_2)),
+        "casino_1": html.escape(str(casino_1)),
+        "game_1": html.escape(str(game_1)),
+        "winrate_1": f"{winrate_1:.2f}",
+        "casino_2": html.escape(str(casino_2)),
+        "game_2": html.escape(str(game_2)),
+        "winrate_2": f"{winrate_2:.2f}"
+    }
+
+def get_next_template_index(uid, pool_type, total_count):
+    deck_key = f"deck_{pool_type}"
+    if uid not in user_sessions:
+        user_sessions[uid] = {}
+    deck = user_sessions[uid].get(deck_key)
+    if not deck or len(deck) == 0:
+        deck = list(range(total_count))
+        random.shuffle(deck)
+        user_sessions[uid][deck_key] = deck
+    return user_sessions[uid][deck_key].pop()
+
+def start_inactivity_scheduler(chat_id, uid, user_name, session_token):
+    # Phase 1: 20-Second Inactivity Follow-up (Direct CTA, casual, channel link)
+    time.sleep(20)
+    if user_sessions.get(uid, {}).get("active_loop_token") != session_token:
+        return
+
+    # Delete previous channel follow-up if present
+    if user_sessions.get(uid, {}).get("last_channel_msg_id"):
+        try: bot.delete_message(chat_id, user_sessions[uid]["last_channel_msg_id"])
+        except: pass
+        user_sessions[uid]["last_channel_msg_id"] = None
+
+    ctx = get_dynamic_reengagement_context(uid, user_name)
+    channel_link = OFFICIAL_CHANNEL_URL
+    followup_text = (
+        f"{ctx['name']}, sumali ka na sa Official Channel natin para updated ka palagi sa mga live winning patterns, daily calibrated seeds, at telemetry releases ng Slot Jackpot Reader:\n"
+        f"👉 {channel_link}"
+    )
+    ch_kb = types.InlineKeyboardMarkup(row_width=1)
+    ch_kb.add(types.InlineKeyboardButton("📢 SUMALI SA OFFICIAL CHANNEL", url=channel_link))
+    try:
+        sent_ch = bot.send_message(chat_id, followup_text, parse_mode="HTML", reply_markup=ch_kb)
+        if sent_ch and hasattr(sent_ch, "message_id"):
+            user_sessions[uid]["last_channel_msg_id"] = sent_ch.message_id
+    except Exception as e:
+        print(f"Error sending 20s follow-up: {e}")
+
+    # Phase 2: 5-Minute Inactivity Loop (up to 10 cycles, deck shuffle without replacement)
+    for cycle in range(1, 11):
+        time.sleep(300) # 5 minutes
+        if user_sessions.get(uid, {}).get("active_loop_token") != session_token:
+            return
+
+        # Delete previous re-engagement message before sending new one
+        if user_sessions.get(uid, {}).get("last_reengagement_msg_id"):
+            try: bot.delete_message(chat_id, user_sessions[uid]["last_reengagement_msg_id"])
+            except: pass
+            user_sessions[uid]["last_reengagement_msg_id"] = None
+
+        tmpl_idx = get_next_template_index(uid, "5min", len(TEMPLATES_5MIN))
+        template = TEMPLATES_5MIN[tmpl_idx]
+        current_ctx = get_dynamic_reengagement_context(uid, user_name)
+        msg_text = template.format(**current_ctx)
+
+        akb = types.InlineKeyboardMarkup(row_width=1)
+        akb.add(types.InlineKeyboardButton("🚀 OPEN JACKPOT READER", callback_data="intro_proceed"))
+        try:
+            sent_re = bot.send_message(chat_id, msg_text, parse_mode="HTML", reply_markup=akb)
+            if sent_re and hasattr(sent_re, "message_id"):
+                user_sessions[uid]["last_reengagement_msg_id"] = sent_re.message_id
+        except Exception as e:
+            print(f"Error sending 5-min re-engagement: {e}")
+
+    # Phase 3: Daily Retention Loop (up to 20 cycles, deck shuffle without replacement)
+    for day in range(1, 21):
+        time.sleep(86400) # 24 hours between messages
+        if user_sessions.get(uid, {}).get("active_loop_token") != session_token:
+            return
+
+        # Delete previous daily message before sending new one
+        if user_sessions.get(uid, {}).get("last_reengagement_msg_id"):
+            try: bot.delete_message(chat_id, user_sessions[uid]["last_reengagement_msg_id"])
+            except: pass
+            user_sessions[uid]["last_reengagement_msg_id"] = None
+
+        tmpl_idx = get_next_template_index(uid, "daily", len(TEMPLATES_DAILY))
+        template = TEMPLATES_DAILY[tmpl_idx]
+        current_ctx = get_dynamic_reengagement_context(uid, user_name)
+        msg_text = template.format(**current_ctx)
+
+        dkb = types.InlineKeyboardMarkup(row_width=1)
+        dkb.add(types.InlineKeyboardButton("🎰 CHECK TOP WINNING GAMES", callback_data="intro_proceed"))
+        try:
+            sent_daily = bot.send_message(chat_id, msg_text, parse_mode="HTML", reply_markup=dkb)
+            if sent_daily and hasattr(sent_daily, "message_id"):
+                user_sessions[uid]["last_reengagement_msg_id"] = sent_daily.message_id
+        except Exception as e:
+            print(f"Error sending daily retention: {e}")
+
 # Centralized message handler to avoid conflicts and ensure new games/providers are caught
 @bot.message_handler(func=lambda m: m.text and not m.text.startswith("/"))
 def handle_text_messages(message):
@@ -2058,27 +2310,40 @@ def handle_text_messages(message):
                 user_sessions[uid]["casino"] = cas_name
             return main_menu(message.chat.id, uid)
 
-    # Fallback response for normal chat messages - with 3-10s random delay & anti-spam debounce
+    # Fallback response for normal chat messages
     save_user(uid)
     if uid not in user_sessions:
         user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": False}
 
-    # Invalidate any pending 20-second follow-up timer because user is actively messaging
+    # Cancel any running inactivity / follow-up loops immediately
     user_sessions[uid]["followup_token"] = None
+    user_sessions[uid]["active_loop_token"] = None
+    user_name = message.from_user.first_name or "Player"
+    user_sessions[uid]["user_name"] = user_name
 
-    # Immediately delete previous guide and channel messages so replies never pile up
-    for m_key in ["last_guide_msg_id", "last_channel_msg_id"]:
+    # 5-SECOND DELAYED DELETION of previous bot replies
+    def delayed_delete_old_replies(chat_id, ids_to_delete):
+        time.sleep(5)
+        for mid in ids_to_delete:
+            if mid:
+                try: bot.delete_message(chat_id, mid)
+                except: pass
+
+    old_ids = []
+    for m_key in ["last_guide_msg_id", "last_channel_msg_id", "last_reengagement_msg_id"]:
         prev_m_id = user_sessions[uid].get(m_key)
         if prev_m_id:
-            try: bot.delete_message(message.chat.id, prev_m_id)
-            except: pass
+            old_ids.append(prev_m_id)
             user_sessions[uid][m_key] = None
+
+    if old_ids:
+        threading.Thread(target=delayed_delete_old_replies, args=(message.chat.id, old_ids), daemon=True).start()
 
     # Track this specific request token for anti-spam debounce
     req_token = time.time()
     user_sessions[uid]["last_normal_chat_token"] = req_token
 
-    # Random delay 3 to 10 seconds
+    # Random delay 3 to 10 seconds with typing action
     delay_sec = random.uniform(3.0, 10.0)
     try:
         bot.send_chat_action(message.chat.id, "typing")
@@ -2089,14 +2354,6 @@ def handle_text_messages(message):
     # Check if a newer message arrived while waiting - if so, quietly abort this stale thread
     if user_sessions[uid].get("last_normal_chat_token") != req_token:
         return
-
-    # Delete previous messages again to guarantee no duplicates
-    for m_key in ["last_guide_msg_id", "last_channel_msg_id"]:
-        prev_m_id = user_sessions[uid].get(m_key)
-        if prev_m_id:
-            try: bot.delete_message(message.chat.id, prev_m_id)
-            except: pass
-            user_sessions[uid][m_key] = None
 
     guide_caption = (
         "👋 <b>Mabuhay! Narito ang Gabay sa Paggamit ng 𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑:</b>\n"
@@ -2124,40 +2381,11 @@ def handle_text_messages(message):
     except Exception as e:
         print(f"Error sending guide fallback message: {e}")
 
-    # Start 20-second inactivity timer: only send follow-up if user does NOT reply or message for 20 seconds
-    followup_token = time.time()
-    user_sessions[uid]["followup_token"] = followup_token
+    # Start Inactivity Scheduler (20s follow-up -> 5-min loop -> daily loop)
+    session_token = time.time()
+    user_sessions[uid]["active_loop_token"] = session_token
+    threading.Thread(target=start_inactivity_scheduler, args=(message.chat.id, uid, user_name, session_token), daemon=True).start()
 
-    def delayed_followup(chat_id, user_id, expected_token):
-        time.sleep(20)
-        # Check if user has not replied or messaged for 20 seconds
-        if user_sessions.get(user_id, {}).get("followup_token") != expected_token:
-            return
-
-        # Delete previous channel message if it exists
-        if user_sessions.get(user_id, {}).get("last_channel_msg_id"):
-            try: bot.delete_message(chat_id, user_sessions[user_id]["last_channel_msg_id"])
-            except: pass
-            user_sessions[user_id]["last_channel_msg_id"] = None
-
-        channel_caption = (
-            "📢 <b>OPISYAL NA ANUNSYO & UPDATES</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Sumali sa aming <b>Official VIP Channel</b> upang manatiling updated sa pinakabagong high-volatility jackpot signals, algorithm updates, at winning patterns ng <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b>:\n\n"
-            "👉 <b>Official Channel:</b> https://t.me/+emEhYhP29m41OWQ9\n\n"
-            "<i>Huwag palampasin ang mga live winning pattern drops at eksklusibong update!</i>"
-        )
-        ch_kb = types.InlineKeyboardMarkup(row_width=1)
-        ch_kb.add(types.InlineKeyboardButton("📢 SUMALI SA OFFICIAL CHANNEL", url="https://t.me/+emEhYhP29m41OWQ9"))
-
-        try:
-            sent_ch = bot.send_message(chat_id, channel_caption, parse_mode="HTML", reply_markup=ch_kb)
-            if sent_ch and hasattr(sent_ch, "message_id"):
-                user_sessions[user_id]["last_channel_msg_id"] = sent_ch.message_id
-        except Exception as e:
-            print(f"Error sending channel follow-up message: {e}")
-
-    threading.Thread(target=delayed_followup, args=(message.chat.id, uid, followup_token), daemon=True).start()
 
 @bot.message_handler(commands=["top5", "top10"])
 def top_games_cmd(message):
