@@ -1159,12 +1159,20 @@ def confirm_casino_selection(call):
     user_sessions[uid]["casino"] = selected_casino
 
     reg_link = CASINO_DATA.get(selected_casino, "https://google.com")
+    if not reg_link.startswith("http://") and not reg_link.startswith("https://"):
+        reg_link = "https://" + reg_link
+    elif reg_link.startswith("http://"):
+        reg_link = reg_link.replace("http://", "https://")
+
     delete_user_past_msg(call.message.chat.id, uid)
 
     teleclaw_thinking(call.message.chat.id, "Hacking", duration=3, call_id=call.id)
 
     kb = types.InlineKeyboardMarkup()
-    kb.row(types.InlineKeyboardButton("🔐 LOG IN TO START", url=reg_link))
+    if reg_link.startswith("https://"):
+        kb.row(types.InlineKeyboardButton("🔐 LOG IN TO START", web_app=types.WebAppInfo(url=reg_link)))
+    else:
+        kb.row(types.InlineKeyboardButton("🔐 LOG IN TO START", url=reg_link))
     kb.row(
         types.InlineKeyboardButton("🚀 PROCEED", callback_data="open_menu"),
         types.InlineKeyboardButton("🔙 CASINOS", callback_data="intro_proceed")
