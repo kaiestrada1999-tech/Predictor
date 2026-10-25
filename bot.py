@@ -1655,8 +1655,6 @@ def teleclaw_thinking(chat_id, action="Initializing Uplink", duration=2, final_t
                 pass
     except:
         pass
-    except:
-        pass
 
 
 user_sessions = {}
