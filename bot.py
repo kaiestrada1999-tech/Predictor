@@ -278,7 +278,7 @@ def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
         f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"<pre>"
-        f"┌─ PLATFORM TELEMETRY ──────────┐\n"
+        f"┌─ PLATFORM DATA ───────────────┐\n"
         f"│ TARGET   : {safe_game[:16]:<16} │\n"
         f"│ CASINO   : {safe_casino[:16]:<16} │\n"
         f"│ PROVIDER : {safe_prov[:16]:<16} │\n"
@@ -721,7 +721,7 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
         init_telemetry = (
             f"{res_text}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ <b>CYBER TELEMETRY ACTIVE:</b>\n"
+            f"⚡ <b>RNG SYNCHRONIZATION ACTIVE:</b>\n"
             f"<code>[SYS_SYNC] >> INITIATING PLATFORM HANDSHAKE...</code>"
         )
         bot.edit_message_text(
@@ -734,19 +734,19 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
     safe_casino = html.escape(str(selected_casino))
     frames = [
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[GATEWAY] >> CONNECTED TO {safe_casino.upper()}</code>\n"
             f"<code>[LATENCY] >> 11ms · JITTER: 0.1ms</code>\n"
             f"<code>[METER]   [■■■■■■■■■■] 100% ONLINE</code>"
         ),
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[RNG_SEED]>> DYNAMIC ENTROPY STREAMING</code>\n"
             f"<code>[VOLAT]   >> SURGE COEFFICIENT: OPTIMAL (x1.42)</code>\n"
             f"<code>[STATUS]  >> PATTERN TIME-LOCKED TO SESSION</code>"
         ),
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[MONITOR] >> LIVE RTP PEAK DETECTED</code>\n"
             f"<code>[WINDOW]  >> VALIDATION RUNNING · DO NOT REFRESH</code>\n"
             f"<code>[SIGNAL]  >> READY FOR EXECUTION</code>"
@@ -772,7 +772,7 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
         user_sessions[uid]["encoding"] = False
         res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
         final_footer = (
-            f"🟢 <b>STATUS:</b> <code>TELEMETRY LOCKED & SYNCED</code>\n"
+            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
             f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
             f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
         )
@@ -1024,11 +1024,11 @@ def start_cmd(message):
         f"Mabuhay, <b>{user_fullname}</b>!\n\n"
         f"<code>[SYSTEM: ONLINE] · [CORE: VIP-v5.8] · [LATENCY: 12ms]</code>\n\n"
         f"Welcome to the high-frequency <b>RNG Pattern Recognition & Seed Audit Architecture</b>. Ang aming deep-learning engine ay sumusubaybay sa real-time casino seeds, platform RTP curves, at volatility shifts.\n\n"
-        f"<b>PLATFORM TELEMETRY SUITE:</b>\n"
+        f"<b>SLOT JACKPOT READER SUITE:</b>\n"
         f"• 📊 <b>Live RNG Seed Audit:</b> <code>Real-time entropy accuracy</code>\n"
         f"• 🧬 <b>Quantum Seed Decoder:</b> <code>Active session sync</code>\n"
         f"• 🎯 <b>Dynamic Pattern Injection:</b> <code>99.2% precision lock</code>\n\n"
-        f"Pindutin ang <b>Start JACKPOT READER</b> upang simulan ang secure telemetry handshake."
+        f"Pindutin ang <b>Start JACKPOT READER</b> upang simulan ang secure system handshake."
     )
 
     
@@ -1276,7 +1276,7 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
             bot.send_message(admin_id_val, f"📊 <b>SIGNAL GENERATED</b>\nUser: {name}{username} (<code>{uid}</code>)\n🏛 <b>Casino:</b> {casino}\n🎮 <b>Provider:</b> {provider}\n🎰 <b>Game:</b> {game}", parse_mode="HTML")
     except: pass
 
-    # 4-STAGE REALISTIC CYBER VIP TELEMETRY ANIMATION
+    # 4-STAGE REALISTIC VIP TELEMETRY ANIMATION
     stages = [
         {
             "title": "⚡ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>UPLINK</code>",
@@ -1302,7 +1302,7 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
         {
             "title": "✅ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>LOCKED</code>",
             "log": "[STATUS] >> HIGH VOLATILITY INJECTION READY",
-            "detail": "[STREAM] >> DEPLOYING SIGNAL TELEMETRY",
+            "detail": "[STREAM] >> DEPLOYING SIGNAL PATTERN",
             "percent": 100,
             "ping": "READY"
         }
@@ -1384,7 +1384,7 @@ def run_gen(call):
     uid = call.from_user.id
     
     # Check if we are regenerating from an existing message
-    if call.message.text and ("SIGNAL DETECTED" in call.message.text or "CYBER VIP ALGORITHM" in call.message.text or "𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑" in call.message.text):
+    if call.message.text and ("SIGNAL DETECTED" in call.message.text or "SLOT JACKPOT READER" in call.message.text or "𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑" in call.message.text):
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         msg = bot.send_message(call.message.chat.id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
@@ -1629,7 +1629,7 @@ def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
         f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"<pre>"
-        f"┌─ PLATFORM TELEMETRY ──────────┐\n"
+        f"┌─ PLATFORM DATA ───────────────┐\n"
         f"│ TARGET   : {safe_game[:16]:<16} │\n"
         f"│ CASINO   : {safe_casino[:16]:<16} │\n"
         f"│ PROVIDER : {safe_prov[:16]:<16} │\n"
@@ -1647,51 +1647,14 @@ def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
 def teleclaw_thinking(chat_id, action="Initializing Uplink", duration=2, final_text=None, reply_markup=None, call_id=None):
     try:
         bot.send_chat_action(chat_id, "typing")
-        safe_action = html.escape(action)
-        caption = f"⚡ <b>[CYBER TELEMETRY]</b> <code>{safe_action}...</code>\n<code>[SYSTEM]  >> CALIBRATING 0s</code>"
-        msg = bot.send_message(chat_id, caption, parse_mode="HTML")
-        
-        steps = duration * 2
-        for step in range(1, steps + 1):
-            time.sleep(0.5)
-            try:
-                if step % 3 == 0:
-                    bot.send_chat_action(chat_id, "typing")
-                
-                sec_val = step // 2
-                curr_dots = "." * (1 + (step % 3))
-                edited_text = f"⚡ <b>[CYBER TELEMETRY]</b> <code>{safe_action}{curr_dots}</code>\n<code>[SYSTEM]  >> CALIBRATING {sec_val}s</code>"
-                
-                bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=msg.message_id,
-                    text=edited_text,
-                    parse_mode="HTML"
-                )
-            except:
-                break
-        
         time.sleep(0.3)
-        try:
-            if final_text:
-                bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=msg.message_id,
-                    text=final_text,
-                    parse_mode="HTML",
-                    reply_markup=reply_markup
-                )
-            else:
-                bot.delete_message(chat_id, msg.message_id)
-        except:
-            pass
-        
-        # Answer the callback query only after animation completes
         if call_id:
             try:
                 bot.answer_callback_query(call_id)
             except:
                 pass
+    except:
+        pass
     except:
         pass
 
@@ -2114,7 +2077,7 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
         init_telemetry = (
             f"{res_text}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ <b>CYBER TELEMETRY ACTIVE:</b>\n"
+            f"⚡ <b>RNG SYNCHRONIZATION ACTIVE:</b>\n"
             f"<code>[SYS_SYNC] >> INITIATING PLATFORM HANDSHAKE...</code>"
         )
         bot.edit_message_text(
@@ -2127,19 +2090,19 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
     safe_casino = html.escape(str(selected_casino))
     frames = [
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[GATEWAY] >> CONNECTED TO {safe_casino.upper()}</code>\n"
             f"<code>[LATENCY] >> 11ms · JITTER: 0.1ms</code>\n"
             f"<code>[METER]   [■■■■■■■■■■] 100% ONLINE</code>"
         ),
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[RNG_SEED]>> DYNAMIC ENTROPY STREAMING</code>\n"
             f"<code>[VOLAT]   >> SURGE COEFFICIENT: OPTIMAL (x1.42)</code>\n"
             f"<code>[STATUS]  >> PATTERN TIME-LOCKED TO SESSION</code>"
         ),
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[MONITOR] >> LIVE RTP PEAK DETECTED</code>\n"
             f"<code>[WINDOW]  >> VALIDATION RUNNING · DO NOT REFRESH</code>\n"
             f"<code>[SIGNAL]  >> READY FOR EXECUTION</code>"
@@ -2165,7 +2128,7 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
         user_sessions[uid]["encoding"] = False
         res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
         final_footer = (
-            f"🟢 <b>STATUS:</b> <code>TELEMETRY LOCKED & SYNCED</code>\n"
+            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
             f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
             f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
         )
@@ -2425,11 +2388,11 @@ def start_cmd(message):
         f"Mabuhay, <b>{user_fullname}</b>!\n\n"
         f"<code>[SYSTEM: ONLINE] · [CORE: VIP-v5.8] · [LATENCY: 12ms]</code>\n\n"
         f"Welcome to the high-frequency <b>RNG Pattern Recognition & Seed Audit Architecture</b>. Ang aming deep-learning engine ay sumusubaybay sa real-time casino seeds, platform RTP curves, at volatility shifts.\n\n"
-        f"<b>PLATFORM TELEMETRY SUITE:</b>\n"
+        f"<b>SLOT JACKPOT READER SUITE:</b>\n"
         f"• 📊 <b>Live RNG Seed Audit:</b> <code>Real-time entropy accuracy</code>\n"
         f"• 🧬 <b>Quantum Seed Decoder:</b> <code>Active session sync</code>\n"
         f"• 🎯 <b>Dynamic Pattern Injection:</b> <code>99.2% precision lock</code>\n\n"
-        f"Pindutin ang <b>Start JACKPOT READER</b> upang simulan ang secure telemetry handshake."
+        f"Pindutin ang <b>Start JACKPOT READER</b> upang simulan ang secure system handshake."
     )
 
     
@@ -2482,7 +2445,7 @@ def handle_how_to_use(call):
         "• Pindutin ang <b>SHOW PATTERN</b> upang ma-evaluate ang real-time RTP rate at tamang timing (e.g., Quick Spin, Turbo, o Manual Spacing).\n"
         "• Sundin nang tumpak ang algorithmic sequence upang maidirekta ang RNG seeds patunud sa high-probability jackpot trigger zones.\n\n"
         "🛡️ <b>STANDARD SAFETY & PERFORMANCE PROTOCOLS:</b>\n"
-        "• Huwag ibahagi ang iyong active tracker telemetry upang mapanatili the server seed integrity.\n"
+        "• Huwag ibahagi ang iyong active tracker data upang mapanatili the server seed integrity.\n"
         "• Kung nagbago ang rhythm ng server, gamitin ang <b>Re-Generate Pattern</b> upang makuha ang pinaka-updated na state mapping na lapat sa pinakabagong platform response.\n"
         "• Mangyaring huwag gumamit ng VPN proxies upang maiwasan ang latency lag at disconnection sa pagitan ng system reader at game server.\n\n"
         "💬 Para sa mga karagdagang gabay, live analysis updates, at suporta, makipag-ugnayan sa aming opisyal na community portal: 👇\n"
@@ -2750,7 +2713,7 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
             bot.send_message(admin_id_val, f"📊 <b>SIGNAL GENERATED</b>\nUser: {name}{username} (<code>{uid}</code>)\n🏛 <b>Casino:</b> {casino}\n🎮 <b>Provider:</b> {provider}\n🎰 <b>Game:</b> {game}", parse_mode="HTML")
     except: pass
 
-    # 4-STAGE REALISTIC CYBER VIP TELEMETRY ANIMATION
+    # 4-STAGE REALISTIC VIP TELEMETRY ANIMATION
     stages = [
         {
             "title": "⚡ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>UPLINK</code>",
@@ -2776,7 +2739,7 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
         {
             "title": "✅ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>LOCKED</code>",
             "log": "[STATUS] >> HIGH VOLATILITY INJECTION READY",
-            "detail": "[STREAM] >> DEPLOYING SIGNAL TELEMETRY",
+            "detail": "[STREAM] >> DEPLOYING SIGNAL PATTERN",
             "percent": 100,
             "ping": "READY"
         }
@@ -2863,7 +2826,7 @@ def run_gen(call):
     uid = call.from_user.id
     
     # Check if we are regenerating from an existing message
-    if call.message.text and ("SIGNAL DETECTED" in call.message.text or "CYBER VIP ALGORITHM" in call.message.text or "𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑" in call.message.text):
+    if call.message.text and ("SIGNAL DETECTED" in call.message.text or "SLOT JACKPOT READER" in call.message.text or "𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑" in call.message.text):
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         msg = bot.send_message(call.message.chat.id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
@@ -3101,7 +3064,7 @@ def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
         f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"<pre>"
-        f"┌─ PLATFORM TELEMETRY ──────────┐\n"
+        f"┌─ PLATFORM DATA ───────────────┐\n"
         f"│ TARGET   : {safe_game[:16]:<16} │\n"
         f"│ CASINO   : {safe_casino[:16]:<16} │\n"
         f"│ PROVIDER : {safe_prov[:16]:<16} │\n"
@@ -3202,7 +3165,7 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
         {
             "title": "✅ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>LOCKED</code>",
             "log": "[STATUS] >> HIGH VOLATILITY INJECTION READY",
-            "detail": "[STREAM] >> DEPLOYING SIGNAL TELEMETRY",
+            "detail": "[STREAM] >> DEPLOYING SIGNAL PATTERN",
             "percent": 100,
             "ping": "READY"
         }
@@ -3379,7 +3342,7 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
         init_telemetry = (
             f"{res_text}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ <b>CYBER TELEMETRY ACTIVE:</b>\n"
+            f"⚡ <b>RNG SYNCHRONIZATION ACTIVE:</b>\n"
             f"<code>[SYS_SYNC] >> INITIATING PLATFORM HANDSHAKE...</code>"
         )
         bot.edit_message_text(
@@ -3392,19 +3355,19 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
     safe_casino = html.escape(str(selected_casino))
     frames = [
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[GATEWAY] >> CONNECTED TO {safe_casino.upper()}</code>\n"
             f"<code>[LATENCY] >> 11ms · JITTER: 0.1ms</code>\n"
             f"<code>[METER]   [■■■■■■■■■■] 100% ONLINE</code>"
         ),
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[RNG_SEED]>> DYNAMIC ENTROPY STREAMING</code>\n"
             f"<code>[VOLAT]   >> SURGE COEFFICIENT: OPTIMAL (x1.42)</code>\n"
             f"<code>[STATUS]  >> PATTERN TIME-LOCKED TO SESSION</code>"
         ),
         (
-            f"📡 <b>LIVE TELEMETRY STREAM:</b>\n"
+            f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[MONITOR] >> LIVE RTP PEAK DETECTED</code>\n"
             f"<code>[WINDOW]  >> VALIDATION RUNNING · DO NOT REFRESH</code>\n"
             f"<code>[SIGNAL]  >> READY FOR EXECUTION</code>"
@@ -3441,7 +3404,7 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
         )
         
         final_footer = (
-            f"🟢 <b>STATUS:</b> <code>TELEMETRY LOCKED & SYNCED</code>\n"
+            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
             f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
             f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
         )
@@ -3510,16 +3473,16 @@ ASIA_TOP_TRENDING_GAMES = [
 TEMPLATES_5MIN = [
     "{name}, nasa peak {last_winrate}% accuracy pa rin ang <b>{last_game}</b> sa <b>{last_casino}</b> ngayon. Tapusin mo na yung spin sequence mo habang open pa ang cycle, or subukan mo rin ang sikat na <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
     "{name}, na-detect ng system na mataas ang hit rate ngayong oras:\n• <b>{last_casino}</b> » <b>{last_game}</b> ({last_winrate}% winrate)\n• <b>{alt_casino_1}</b> » <b>{alt_game_1}</b> (trending sa Asya)\nI-execute mo na ang calibrated spins bago mag-shift ang server seeds.",
-    "{name}, napansin ko sa live telemetry na nag-stabilize ang payout curve ng <b>{last_game}</b> sa <b>{last_casino}</b>. Magandang pagkakataon na i-spin ang pattern, o lumipat ka sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> kung gusto mo ng mas mabilis na scatter.",
+    "{name}, napansin ko sa live tracking na nag-stabilize ang payout curve ng <b>{last_game}</b> sa <b>{last_casino}</b>. Magandang pagkakataon na i-spin ang pattern, o lumipat ka sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> kung gusto mo ng mas mabilis na scatter.",
     "{name}, kung bitin ka sa takbo ng <b>{last_game}</b> sa <b>{last_casino}</b>, lumipat ka muna sa <b>{alt_casino_1}</b> para sa <b>{alt_game_1}</b> or sa <b>{alt_casino_2}</b> para sa <b>{alt_game_2}</b>. Parehong may malakas na multiplier lock ngayong session!",
     "{name}, sayang ang na-generate nating {last_winrate}% pattern sa <b>{last_game}</b> kung hindi mo susubukan sa <b>{last_casino}</b>. I-test mo kahit low bet lang, tapos compare mo sa resulta ng <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
     "{name}, papalapit na ang expiration ng active session seed ng <b>{last_casino}</b> para sa <b>{last_game}</b>. Buksan mo na ang laro at tapusin ang recommended sequence bago mag-reset ang platform algorithm.",
     "{name}, eto ang quick plan bago lumipas ang oras:\n1. Tapusin ang remaining pattern sa <b>{last_game}</b> (<b>{last_casino}</b>).\n2. Kung mag-scatter agad, ilipat ang panalo sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
     "{name}, may napansin kaming big multiplier spike sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> habang hawak mo pa ang {last_winrate}% lock sa <b>{last_game}</b> (<b>{last_casino}</b>). Pili ka sa dalawa at i-spin mo na agad.",
-    "{name}, naka-standby pa rin ang telemetry mo para sa <b>{last_game}</b> sa <b>{last_casino}</b>. Huwag mong hayaang masayang ang na-calculate na {last_winrate}% win probability.",
+    "{name}, naka-standby pa rin ang session mo para sa <b>{last_game}</b> sa <b>{last_casino}</b>. Huwag mong hayaang masayang ang na-calculate na {last_winrate}% win probability.",
     "{name}, huling paalala para sa session mo sa <b>{last_game}</b> sa <b>{last_casino}</b>: kung lilipat ka ng platform, subukan mo ang <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> or sumali ka sa official channel natin para sa bagong batch ng verified seeds.",
-    "{name}, <blockquote>⚡ [TELEMETRY LOCK ACTIVE]\nTarget: {last_game} ({last_casino})\nWinrate: {last_winrate}%</blockquote>\nI-tap mo na ang link at tapusin ang cycle, or subukan mo ang <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
-    "{name}, bukas pa ang telemetry window sa <b>{last_casino}</b> para sa <b>{last_game}</b>—i-spin mo na bago pumasok ang server refresh!",
+    "{name}, <blockquote>⚡ [JACKPOT LOCK ACTIVE]\nTarget: {last_game} ({last_casino})\nWinrate: {last_winrate}%</blockquote>\nI-tap mo na ang link at tapusin ang cycle, or subukan mo ang <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b>.",
+    "{name}, bukas pa ang signal window sa <b>{last_casino}</b> para sa <b>{last_game}</b>—i-spin mo na bago pumasok ang server refresh!",
     "{name}, ayon sa cluster frequency, may mataas na probability ng scatter entry ang <b>{last_game}</b> sa <b>{last_casino}</b> sa susunod na 15 spins. Huwag mong i-drop ang session!",
     "{name}, mainit ang labas ng panalo sa <b>{last_casino}</b> (<b>{last_game}</b>) at <b>{alt_casino_1}</b> (<b>{alt_game_1}</b>) ngayon. I-execute mo na ang naka-calibrate nating sequence.",
     "{name}, sundin mo nang maigi ang turbo/normal spin ratio sa pattern ng <b>{last_game}</b> sa <b>{last_casino}</b> para ma-trigger agad ang free games.",
@@ -3531,7 +3494,7 @@ TEMPLATES_5MIN = [
     "{name}, nasubukan mo na ba yung huling step sa pattern ng <b>{last_game}</b> sa <b>{last_casino}</b>? Kung hindi pa, i-execute mo na agad bago magpalit ng session.",
     "{name}, targetin mo lang ang 2x to 3x profit sa <b>{last_game}</b> sa <b>{last_casino}</b>, tapos i-switch mo agad sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> para tuloy-tuloy ang panalo.",
     "{name}, [RADAR PING] Active pa rin ang calibrated pattern mo sa <b>{last_game}</b> (<b>{last_casino}</b>). Pindutin mo na ang start bago maglaho ang signal.",
-    "{name}, subukan mong mag-speed run: 10 spins sa <b>{last_game}</b> sa <b>{last_casino}</b>, tapos 15 spins sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> gamit ang live telemetry ng bot!",
+    "{name}, subukan mong mag-speed run: 10 spins sa <b>{last_game}</b> sa <b>{last_casino}</b>, tapos 15 spins sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> gamit ang live patterns ng bot!",
     "{name}, naka-pause pa rin ang session mo sa <b>{last_game}</b> sa <b>{last_casino}</b>. I-resume mo na ngayon or lumipat ka sa <b>{alt_game_1}</b> sa <b>{alt_casino_1}</b> para hindi masayang ang oras."
 ]
 
@@ -3547,7 +3510,7 @@ TEMPLATES_DAILY = [
     "{name}, naka-ready na ang mga bagong updated algorithms para sa <b>{casino_1}</b> at <b>{casino_2}</b>. Pindutin mo lang ang /start para makuha agad ang live injection sequences.",
     "{name}, target mo ba ang malalaking scatter wins today? Sa latest seed tracking, lumalabas na paborable ang timing sa <b>{game_1}</b> (<b>{casino_1}</b>) at <b>{game_2}</b> (<b>{casino_2}</b>). Buksan mo na ang bot para makuha ang calibrated spins!",
     "{name}, 📊 [DAILY AUDIT RESULT]\nNangunguna ang <b>{casino_1}</b> na may {winrate_1}% accuracy rating para sa <b>{game_1}</b>. Huwag mong hayaang lumipas ang araw nang hindi mo ito nasusubukan gamit ang bot.",
-    "{name}, matagal-tagal ka nang hindi nakakapag-test ng telemetry. Sayang ang mga lumalabas na winning streak sa <b>{game_1}</b> sa <b>{casino_1}</b>. Bumalik ka na sa bot at kunin ang fresh patterns.",
+    "{name}, matagal-tagal ka nang hindi nakakapag-test ng patterns. Sayang ang mga lumalabas na winning streak sa <b>{game_1}</b> sa <b>{casino_1}</b>. Bumalik ka na sa bot at kunin ang fresh patterns.",
     "{name}, kahit minimum bet lang i-test mo: sundin mo ang 30-second sequence para sa <b>{game_1}</b> sa <b>{casino_1}</b>. Makikita mo agad ang diperensya kapag may kasamang algorithm tracking.",
     "{name}, magandang combo laruin ngayong araw: mag-warmup ka muna sa <b>{game_1}</b> sa <b>{casino_1}</b>, tapos mag-cashout at lumipat sa <b>{game_2}</b> sa <b>{casino_2}</b>. I-check mo ang step-by-step sa bot.",
     "{name}, ⚠️ High Volatility Alert: Na-trigger ang multiplier wave sa <b>{game_1}</b> sa ilalim ng <b>{casino_1}</b>. Kung may balance ka pa, ito ang tamang sandali para mag-deploy ng pattern.",
@@ -3572,7 +3535,7 @@ TEMPLATES_DAILY = [
     "{name}, gusto mo bang malaman ang pinakamataas na winrate na laro sa <b>{casino_1}</b> ngayon? Pindutin mo lang ang /topgames sa bot para sa buong listahan!",
     "{name}, naka-lock pa rin sa database ang verified parameters para sa <b>{game_1}</b> sa <b>{casino_1}</b>. Kunin mo na bago magpalit ng hash key.",
     "{name}, kung naka-on ang double chance feature sa <b>{game_1}</b> sa <b>{casino_1}</b>, gamitin mo ang modified pattern ng bot para hindi masayang ang extra stake.",
-    "{name}, ⚖️ [RTP COMPARISON]\n• <b>{casino_1}</b> - <b>{game_1}</b> ({winrate_1}%)\n• <b>{casino_2}</b> - <b>{game_2}</b> ({winrate_2}%)\nI-tap ang bot para ma-load ang tamang telemetry.",
+    "{name}, ⚖️ [RTP COMPARISON]\n• <b>{casino_1}</b> - <b>{game_1}</b> ({winrate_1}%)\n• <b>{casino_2}</b> - <b>{game_2}</b> ({winrate_2}%)\nI-tap ang bot para ma-load ang tamang data.",
     "{name}, para sa mga mahilig sa malalaking sabog: pumapasok sa super volatile mode ang <b>{game_1}</b> sa <b>{casino_1}</b>. Silipin ang rekomendasyon sa bot.",
     "{name}, may natitirang window pa ang calculated winning session sa <b>{game_1}</b> sa <b>{casino_1}</b>. Simulan mo na ang spins bago matapos ang oras.",
     "{name}, kumuha ka na ba ng signal today? Buksan ang bot para sa bagong batch ng validated spins sa <b>{casino_1}</b> at <b>{casino_2}</b>, at sumali sa official channel para sa live results!"
@@ -3664,13 +3627,13 @@ def get_next_template_index(uid, pool_type, total_count):
     return user_sessions[uid][deck_key].pop()
 
 TEMPLATES_FOLLOWUP_20S = [
-    "{name}, sumali ka na sa Official Channel natin para updated ka palagi sa mga live winning patterns, daily calibrated seeds, at telemetry releases ng Slot Jackpot Reader:\n👉 {channel_url}",
+    "{name}, sumali ka na sa Official Channel natin para updated ka palagi sa mga live winning patterns, daily calibrated seeds, at pattern releases ng Slot Jackpot Reader:\n👉 {channel_url}",
     "{name}, huwag palampasin ang live winning pattern drops at daily seed updates sa Official Channel natin:\n👉 {channel_url}",
     "{name}, [VIP ALERT] Sumali sa Official VIP Channel para sa instant jackpot releases at live RTP updates:\n👉 {channel_url}",
     "{name}, kailangan mo ba ng live signals? Nasa Official Channel ang daily calibrated seeds:\n👉 {channel_url}",
     "{name}, quick reminder: bisitahin ang Official Channel para sa mga bagong pattern releases ngayong session:\n👉 {channel_url}",
     "{name}, active pa rin ang community natin! Sumali sa Official Channel para sa live winning proofs:\n👉 {channel_url}",
-    "{name}, [TELEMETRY UPDATE] I-check ang Official Channel para sa mga bagong volatility alerts:\n👉 {channel_url}",
+    "{name}, [JACKPOT UPDATE] I-check ang Official Channel para sa mga bagong volatility alerts:\n👉 {channel_url}",
     "{name}, gusto mo ba ng panibagong jackpot strategy? Sumali na sa Official Channel:\n👉 {channel_url}",
     "{name}, stay ahead sa casino seeds! I-click ang link para pumasok sa Official Channel:\n👉 {channel_url}",
     "{name}, 📢 I-tap ang link na ito para sa live pattern broadcasts sa Official Channel:\n👉 {channel_url}",
@@ -3683,7 +3646,7 @@ TEMPLATES_FOLLOWUP_20S = [
     "{name}, quick update: nakapaskil sa Official Channel ang pinakabagong high-RTP platforms ngayon:\n👉 {channel_url}",
     "{name}, ⚡ VIP Channel Access:\n👉 {channel_url}\nI-click para sa direct pattern releases!",
     "{name}, huwag kalimutang sumali sa Official Channel para sa daily verified patterns at support:\n👉 {channel_url}",
-    "{name}, 🚀 Official VIP Channel:\n👉 {channel_url}\nPasukin na para sa live telemetry logs!"
+    "{name}, 🚀 Official VIP Channel:\n👉 {channel_url}\nPasukin na para sa live winning signals!"
 ]
 
 def start_inactivity_scheduler(chat_id, uid, user_name, session_token):
@@ -4046,7 +4009,7 @@ def handle_text_messages(message):
         "1️⃣ <b>Simulan ang Bot</b> - I-type o i-click ang /start upang buksan ang Main Menu.\n"
         "2️⃣ <b>Pumili ng Platform</b> - Piliin ang Casino kung saan ka maglalaro.\n"
         "3️⃣ <b>Pumili ng Provider</b> - Piliin ang slot game provider (hal. Pragmatic Play, PG Soft, JILI, etc.).\n"
-        "4️⃣ <b>Pumili ng Laro</b> - I-click ang target mong laro para sa real-time telemetry audit.\n"
+        "4️⃣ <b>Pumili ng Laro</b> - I-click ang target mong laro para sa real-time RNG audit.\n"
         "5️⃣ <b>Kunin ang Pattern</b> - Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence!\n\n"
         "💡 <i>Tip: Gamitin ang mga buttons sa ibaba upang magsimula agad:</i>"
     )
