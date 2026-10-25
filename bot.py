@@ -28,11 +28,11 @@ OFFICIAL_CHANNEL_URL = "https://t.me/+4kq9FVpuAyxjYzI1"
 
 # ================= CASINO LINKS DATABASE =================
 CASINO_DATA = {
-    "AGILA CLUB": "https://efj8j.agclub1.com/register.html",
-    "HAHA777": "https://5bset.6014102.com/register.html",
-    "TIKLUCK": "https://pkj11.bugattiplay.net/register.html",
-    "JILIBET": "https://4pgja.fortuneplaygaming.pro/register.html",
-    "BUGATTI PLAY": "https://m3kzq.quantumbbc.fun/register.html"
+    "AGILA CLUB": "https://casino-destination-intro-hph7-seven.vercel.app/?to=agilaclub",
+    "HAHA777": "https://casino-destination-intro-hph7-seven.vercel.app/?to=haha777",
+    "TIKLUCK": "https://casino-destination-intro-hph7-seven.vercel.app/?to=tikluck",
+    "JILIBET": "https://casino-destination-intro-hph7-seven.vercel.app/?to=jilibet",
+    "BUGATTI PLAY": "https://casino-destination-intro-hph7-seven.vercel.app/?to=bugattiplay"
 }
 
 bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=10)
@@ -2455,6 +2455,26 @@ def top_games_cmd(message):
         bot.send_message(message.chat.id, footer, parse_mode="HTML")
     except Exception as e:
         print(f"Error sending footer: {e}")
+
+@bot.message_handler(commands=["casinopages"])
+def casinopages_cmd(message):
+    try: admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
+    except: admin_id_val = 0
+    if message.from_user.id != admin_id_val: return
+    
+    url = "https://t.me/slotpatternbot/casinopages"
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(types.InlineKeyboardButton("🎰 OPEN CASINO PAGES", url=url))
+    caption = (
+        "🏛 <b>CASINO PAGES PORTAL</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Click the button below or use the link to access the Casino Pages:\n\n"
+        f"👉 <b>Link:</b> {url}"
+    )
+    try:
+        bot.send_message(message.chat.id, caption, parse_mode="HTML", reply_markup=kb)
+    except Exception as e:
+        print(f"Error sending casinopages message: {e}")
 
 @bot.message_handler(commands=["backup_users", "back_users"])
 def backup_users_cmd(message):
