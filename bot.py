@@ -3450,6 +3450,12 @@ def show_pattern_callback(call):
     casino = user_sessions[uid].get("casino", "UNKNOWN")
     pattern = user_sessions[uid].get("pattern", "No pattern available.")
     
+    # 1. Edit the original message to remove all inline buttons
+    try:
+        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+    except:
+        pass
+
     # Delete the previous INJECTION PATTERN VERIFIED message if it exists
     prev_pattern_id = user_sessions[uid].get("last_pattern_msg_id")
     if prev_pattern_id:
@@ -3482,8 +3488,19 @@ def show_pattern_callback(call):
         bot.answer_callback_query(call.id, "📋 Pattern revealed below!")
     except:
         pass
+
+    # Transfer all buttons including Reveal to the INJECTION PATTERN VERIFIED message
+    pattern_kb = types.InlineKeyboardMarkup(row_width=1)
+    pattern_kb.add(
+        types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"),
+        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
+        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
+        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
+        types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
+    )
+
     try:
-        sent_pattern_msg = bot.send_message(call.message.chat.id, alert_text, parse_mode="HTML")
+        sent_pattern_msg = bot.send_message(call.message.chat.id, alert_text, parse_mode="HTML", reply_markup=pattern_kb)
         if sent_pattern_msg and hasattr(sent_pattern_msg, "message_id"):
             user_sessions[uid]["last_pattern_msg_id"] = sent_pattern_msg.message_id
     except Exception as e:
