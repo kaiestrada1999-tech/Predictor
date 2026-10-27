@@ -272,22 +272,25 @@ def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
     safe_game = html.escape(str(game))
     safe_casino = html.escape(str(casino))
     safe_prov = html.escape(str(provider))
-    meter = render_meter(prob, 10)
+    meter = render_meter(prob, 8)
+    
+    box_lines = [
+        "┌── PLATFORM DATA",
+        f"│ TARGET   : {safe_game}",
+        f"│ CASINO   : {safe_casino}",
+        f"│ PROVIDER : {safe_prov}",
+        f"│ ACCURACY : {prob:.2f}%",
+        f"│ METER    : [{meter}]",
+        f"│ VOLATILE : HIGH [SURGE PEAK]",
+        f"│ VALID TO : {v_until}",
+        "└──"
+    ]
+    box_text = "\n".join(box_lines)
     
     text = (
         f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<pre>"
-        f"┌─ PLATFORM DATA ───────────────┐\n"
-        f"│ TARGET   : {safe_game[:16]:<16} │\n"
-        f"│ CASINO   : {safe_casino[:16]:<16} │\n"
-        f"│ PROVIDER : {safe_prov[:16]:<16} │\n"
-        f"│ ACCURACY : {prob:.2f}%           │\n"
-        f"│ METER    : [{meter}]     │\n"
-        f"│ VOLATILE : HIGH [SURGE PEAK]  │\n"
-        f"│ VALID TO : {v_until:<18} │\n"
-        f"└───────────────────────────────┘"
-        f"</pre>\n"
+        f"<pre>{box_text}</pre>\n"
         f"<blockquote>💎 <b>INJECTION PROTOCOL:</b>\n"
         f"Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence.</blockquote>"
     )
@@ -1622,7 +1625,7 @@ def render_meter(percent, length=10):
 def format_pattern_code(raw_pattern):
     raw_str = str(raw_pattern).strip()
     if not raw_str:
-        return "<pre><code>┌── INJECTION SEQUENCE ──┐\n│ [01] 25x Turbo Spins   │\n└────────────────────────┘</code></pre>", ""
+        return "<pre><code>┌── INJECTION SEQUENCE\n│ [01] 25x Turbo Spins\n└──</code></pre>", ""
     
     lines = [l.strip() for l in raw_str.splitlines() if l.strip()]
     badge_emoji = ""
@@ -1639,11 +1642,10 @@ def format_pattern_code(raw_pattern):
     if not steps:
         steps = [lines[-1]] if lines else ["25 Turbo Spins"]
         
-    box_lines = ["┌── INJECTION SEQUENCE ──┐"]
+    box_lines = ["┌── INJECTION SEQUENCE"]
     for i, step in enumerate(steps, 1):
-        step_text = step[:17]
-        box_lines.append(f"│ [{i:02d}] {step_text:<17} │")
-    box_lines.append("└────────────────────────┘")
+        box_lines.append(f"│ [{i:02d}] {step}")
+    box_lines.append("└──")
     
     code_box = "<pre><code>" + "\n".join(box_lines) + "</code></pre>"
     return code_box, badge_emoji
@@ -1656,15 +1658,15 @@ def format_cyber_box(game, casino, provider, prob, fake_id, v_until, direct_patt
     prob_str = f"{prob:.2f}%"
     
     box_lines = [
-        "┌── PLATFORM DATA ───────┐",
-        f"│ TARGET   : {safe_game[:11]:<11} │",
-        f"│ CASINO   : {safe_casino[:11]:<11} │",
-        f"│ PROVIDER : {safe_prov[:11]:<11} │",
-        f"│ ACCURACY : {prob_str:<11} │",
-        f"│ METER    : [{meter}]  │",
-        f"│ VOLATILE : HIGH [PEAK] │",
-        f"│ VALID TO : {v_until[:11]:<11} │",
-        "└────────────────────────┘"
+        "┌── PLATFORM DATA",
+        f"│ TARGET   : {safe_game}",
+        f"│ CASINO   : {safe_casino}",
+        f"│ PROVIDER : {safe_prov}",
+        f"│ ACCURACY : {prob_str}",
+        f"│ METER    : [{meter}]",
+        f"│ VOLATILE : HIGH [SURGE PEAK]",
+        f"│ VALID TO : {v_until}",
+        "└──"
     ]
     box_text = "\n".join(box_lines)
     
@@ -3119,15 +3121,15 @@ def format_cyber_box(game, casino, provider, prob, fake_id, v_until, direct_patt
     prob_str = f"{prob:.2f}%"
     
     box_lines = [
-        "┌── PLATFORM DATA ───────┐",
-        f"│ TARGET   : {safe_game[:11]:<11} │",
-        f"│ CASINO   : {safe_casino[:11]:<11} │",
-        f"│ PROVIDER : {safe_prov[:11]:<11} │",
-        f"│ ACCURACY : {prob_str:<11} │",
-        f"│ METER    : [{meter}]  │",
-        f"│ VOLATILE : HIGH [PEAK] │",
-        f"│ VALID TO : {v_until[:11]:<11} │",
-        "└────────────────────────┘"
+        "┌── PLATFORM DATA",
+        f"│ TARGET   : {safe_game}",
+        f"│ CASINO   : {safe_casino}",
+        f"│ PROVIDER : {safe_prov}",
+        f"│ ACCURACY : {prob_str}",
+        f"│ METER    : [{meter}]",
+        f"│ VOLATILE : HIGH [SURGE PEAK]",
+        f"│ VALID TO : {v_until}",
+        "└──"
     ]
     box_text = "\n".join(box_lines)
     
@@ -3555,10 +3557,9 @@ def show_pattern_callback(call):
     except:
         pass
 
-    # Transfer all buttons including Reveal to the INJECTION PATTERN VERIFIED message
+    # Transfer navigation and re-sync buttons to the INJECTION PATTERN VERIFIED message (Reveal button is omitted since pattern is now revealed)
     pattern_kb = types.InlineKeyboardMarkup(row_width=1)
     pattern_kb.add(
-        types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"),
         types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
         types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
         types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
