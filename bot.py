@@ -1615,33 +1615,78 @@ def render_meter(percent, length=10):
     try:
         filled = int(round((float(percent) / 100.0) * length))
     except:
-        filled = 9
+        filled = 7
     filled = max(0, min(length, filled))
     return "■" * filled + "□" * (length - filled)
 
-def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
+def format_pattern_code(raw_pattern):
+    raw_str = str(raw_pattern).strip()
+    if not raw_str:
+        return "<pre><code>┌── INJECTION SEQUENCE ──┐\n│ [01] 25x Turbo Spins   │\n└────────────────────────┘</code></pre>", ""
+    
+    lines = [l.strip() for l in raw_str.splitlines() if l.strip()]
+    badge_emoji = ""
+    steps = []
+    for line in lines:
+        if len(line) <= 4 and any(ord(c) > 127 for c in line):
+            badge_emoji = line
+        else:
+            parts = [p.replace("▶", "").replace("◀", "").replace("⚡", "").strip() for p in line.split("->") if p.strip()]
+            for p in parts:
+                if p:
+                    steps.append(p)
+                    
+    if not steps:
+        steps = [lines[-1]] if lines else ["25 Turbo Spins"]
+        
+    box_lines = ["┌── INJECTION SEQUENCE ──┐"]
+    for i, step in enumerate(steps, 1):
+        step_text = step[:17]
+        box_lines.append(f"│ [{i:02d}] {step_text:<17} │")
+    box_lines.append("└────────────────────────┘")
+    
+    code_box = "<pre><code>" + "\n".join(box_lines) + "</code></pre>"
+    return code_box, badge_emoji
+
+def format_cyber_box(game, casino, provider, prob, fake_id, v_until, direct_pattern=None):
     safe_game = html.escape(str(game))
     safe_casino = html.escape(str(casino))
     safe_prov = html.escape(str(provider))
-    meter = render_meter(prob, 10)
+    meter = render_meter(prob, 8)
+    prob_str = f"{prob:.2f}%"
     
-    text = (
-        f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<pre>"
-        f"┌─ PLATFORM DATA ───────────────┐\n"
-        f"│ TARGET   : {safe_game[:16]:<16} │\n"
-        f"│ CASINO   : {safe_casino[:16]:<16} │\n"
-        f"│ PROVIDER : {safe_prov[:16]:<16} │\n"
-        f"│ ACCURACY : {prob:.2f}%           │\n"
-        f"│ METER    : [{meter}]     │\n"
-        f"│ VOLATILE : HIGH [SURGE PEAK]  │\n"
-        f"│ VALID TO : {v_until:<18} │\n"
-        f"└───────────────────────────────┘"
-        f"</pre>\n"
-        f"<blockquote>💎 <b>INJECTION PROTOCOL:</b>\n"
-        f"Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence.</blockquote>"
-    )
+    box_lines = [
+        "┌── PLATFORM DATA ───────┐",
+        f"│ TARGET   : {safe_game[:11]:<11} │",
+        f"│ CASINO   : {safe_casino[:11]:<11} │",
+        f"│ PROVIDER : {safe_prov[:11]:<11} │",
+        f"│ ACCURACY : {prob_str:<11} │",
+        f"│ METER    : [{meter}]  │",
+        f"│ VOLATILE : HIGH [PEAK] │",
+        f"│ VALID TO : {v_until[:11]:<11} │",
+        "└────────────────────────┘"
+    ]
+    box_text = "\n".join(box_lines)
+    
+    if direct_pattern:
+        pattern_box, badge_emoji = format_pattern_code(direct_pattern)
+        emoji_line = f"{badge_emoji}\n" if badge_emoji else ""
+        text = (
+            f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<pre>{box_text}</pre>\n"
+            f"📋 <b>INJECTION PATTERN VERIFIED:</b>\n"
+            f"{emoji_line}{pattern_box}\n"
+            f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang injection sequence bago matapos ang expiration window.</blockquote>"
+        )
+    else:
+        text = (
+            f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<pre>{box_text}</pre>\n"
+            f"<blockquote>💎 <b>INJECTION PROTOCOL:</b>\n"
+            f"Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence.</blockquote>"
+        )
     return text
 
 def teleclaw_thinking(chat_id, action="Initializing Uplink", duration=2, final_text=None, reply_markup=None, call_id=None):
@@ -2822,23 +2867,37 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
 @bot.callback_query_handler(func=lambda c: c.data == "run_gen")
 def run_gen(call):
     uid = call.from_user.id
+    chat_id = call.message.chat.id
     
-    # Check if we are regenerating from an existing message
-    if call.message.text and ("SIGNAL DETECTED" in call.message.text or "SLOT JACKPOT READER" in call.message.text or "𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑" in call.message.text):
-        try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
-        msg = bot.send_message(call.message.chat.id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
-        message_id = msg.message_id
-    else:
+    # User requested: Delete both the Reader card and the Injection Pattern card when re-syncing!
+    old_last_msg = user_sessions.get(uid, {}).get("last_msg")
+    old_pattern_msg = user_sessions.get(uid, {}).get("last_pattern_msg_id")
+    
+    ids_to_delete = set()
+    if old_last_msg: ids_to_delete.add(old_last_msg)
+    if old_pattern_msg: ids_to_delete.add(old_pattern_msg)
+    if call.message and hasattr(call.message, "message_id"):
+        ids_to_delete.add(call.message.message_id)
+        
+    for mid in ids_to_delete:
         try:
-            msg = bot.edit_message_text("⚡ <b>RE-INITIALIZING ALGORITHM...</b>", call.message.chat.id, call.message.message_id, parse_mode="HTML")
-            message_id = msg.message_id
+            bot.delete_message(chat_id, mid)
         except:
-            msg = bot.send_message(call.message.chat.id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
-            message_id = msg.message_id
+            pass
+            
+    if uid in user_sessions:
+        user_sessions[uid]["last_msg"] = None
+        user_sessions[uid]["last_pattern_msg_id"] = None
+        user_sessions[uid]["is_resync"] = True
+    else:
+        user_sessions[uid] = {"last_msg": None, "last_pattern_msg_id": None, "is_resync": True}
+
+    msg = bot.send_message(chat_id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
+    message_id = msg.message_id
+    user_sessions[uid]["last_msg"] = message_id
         
     run_gen_logic(
-        call.message.chat.id, 
+        chat_id, 
         message_id, 
         call.from_user, 
         user_sessions[uid].get("casino", "UNKNOWN"), 
@@ -3044,37 +3103,53 @@ def help_cmd(message):
 
 
 # ================= OVERRIDDEN LOGIC FOR MULTI-CASINO PROVIDERS =================
-def render_meter(percent, length=10):
+def render_meter(percent, length=8):
     try:
         filled = int(round((float(percent) / 100.0) * length))
     except:
-        filled = 9
+        filled = 7
     filled = max(0, min(length, filled))
     return "■" * filled + "□" * (length - filled)
 
-def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
+def format_cyber_box(game, casino, provider, prob, fake_id, v_until, direct_pattern=None):
     safe_game = html.escape(str(game))
     safe_casino = html.escape(str(casino))
     safe_prov = html.escape(str(provider))
-    meter = render_meter(prob, 10)
+    meter = render_meter(prob, 8)
+    prob_str = f"{prob:.2f}%"
     
-    text = (
-        f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<pre>"
-        f"┌─ PLATFORM DATA ───────────────┐\n"
-        f"│ TARGET   : {safe_game[:16]:<16} │\n"
-        f"│ CASINO   : {safe_casino[:16]:<16} │\n"
-        f"│ PROVIDER : {safe_prov[:16]:<16} │\n"
-        f"│ ACCURACY : {prob:.2f}%           │\n"
-        f"│ METER    : [{meter}]     │\n"
-        f"│ VOLATILE : HIGH [SURGE PEAK]  │\n"
-        f"│ VALID TO : {v_until:<18} │\n"
-        f"└───────────────────────────────┘"
-        f"</pre>\n"
-        f"<blockquote>💎 <b>INJECTION PROTOCOL:</b>\n"
-        f"Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence.</blockquote>"
-    )
+    box_lines = [
+        "┌── PLATFORM DATA ───────┐",
+        f"│ TARGET   : {safe_game[:11]:<11} │",
+        f"│ CASINO   : {safe_casino[:11]:<11} │",
+        f"│ PROVIDER : {safe_prov[:11]:<11} │",
+        f"│ ACCURACY : {prob_str:<11} │",
+        f"│ METER    : [{meter}]  │",
+        f"│ VOLATILE : HIGH [PEAK] │",
+        f"│ VALID TO : {v_until[:11]:<11} │",
+        "└────────────────────────┘"
+    ]
+    box_text = "\n".join(box_lines)
+    
+    if direct_pattern:
+        pattern_box, badge_emoji = format_pattern_code(direct_pattern)
+        emoji_line = f"{badge_emoji}\n" if badge_emoji else ""
+        text = (
+            f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<pre>{box_text}</pre>\n"
+            f"📋 <b>INJECTION PATTERN VERIFIED:</b>\n"
+            f"{emoji_line}{pattern_box}\n"
+            f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang injection sequence bago matapos ang expiration window.</blockquote>"
+        )
+    else:
+        text = (
+            f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<pre>{box_text}</pre>\n"
+            f"<blockquote>💎 <b>INJECTION PROTOCOL:</b>\n"
+            f"Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence.</blockquote>"
+        )
     return text
 
 def display_provider_games(chat_id, uid, provider_name):
@@ -3237,7 +3312,12 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
     fake_id = str(uuid.uuid4())[:8].upper()
     prob_val = random.uniform(96.5, 99.4)
 
-    user_sessions[uid]["result_text"] = format_cyber_box(game_name, casino, provider, prob_val, fake_id, v_until)
+    is_resync = user_sessions[uid].get("is_resync", False)
+    if is_resync:
+        user_sessions[uid]["result_text"] = format_cyber_box(game_name, casino, provider, prob_val, fake_id, v_until, direct_pattern=selected_pattern)
+    else:
+        user_sessions[uid]["result_text"] = format_cyber_box(game_name, casino, provider, prob_val, fake_id, v_until, direct_pattern=None)
+
     user_sessions[uid]["pattern"] = selected_pattern
     user_sessions[uid]["game"] = game_name
     user_sessions[uid]["provider"] = provider
@@ -3257,7 +3337,7 @@ def pick_game(message):
     
     # Ensure session exists
     if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None}
+        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_resync": False}
 
     # Try to find the casino and provider for this game if not set correctly
     current_casino = user_sessions[uid].get("casino")
@@ -3291,6 +3371,7 @@ def pick_game(message):
     except: pass
     delete_user_past_msg(message.chat.id, uid)
     user_sessions[uid]["game"] = game_name
+    user_sessions[uid]["is_resync"] = False
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         types.InlineKeyboardButton("🚀 ANALYZE RNG SEED", callback_data="run_gen"),
         types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
@@ -3391,21 +3472,29 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
     if uid in user_sessions and user_sessions[uid].get("encoding_id") == session_id:
         user_sessions[uid]["encoding"] = False
         res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
+        is_resync = user_sessions[uid].get("is_resync", False)
         
         inline_kb = types.InlineKeyboardMarkup(row_width=1)
+        if not is_resync:
+            inline_kb.add(types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"))
         inline_kb.add(
-            types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"), 
             types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"), 
             types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
             types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
             types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
         )
         
-        final_footer = (
-            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
-            f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
-            f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
-        )
+        if is_resync:
+            final_footer = (
+                f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
+                f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>"
+            )
+        else:
+            final_footer = (
+                f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
+                f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
+                f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
+            )
         try:
             bot.edit_message_text(
                 chat_id=chat_id,
@@ -3415,30 +3504,6 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
                 reply_markup=inline_kb
             )
         except: pass
-
-def format_pattern_code(raw_pattern):
-    lines = [line.strip() for line in str(raw_pattern).strip().splitlines() if line.strip()]
-    if not lines:
-        return "<pre><code>NO PATTERN LOADED</code></pre>"
-    
-    formatted_body = []
-    for line in lines:
-        if len(line) <= 4 and not line.isalnum():
-            formatted_body.append(f"  {line}")
-        else:
-            formatted_body.append(f"  ⚡ ▶ {line} ◀")
-    
-    inner = "\n".join(formatted_body)
-    code_box = (
-        f"<pre><code>"
-        f"┌── [INJECTION CODE: ACTIVE] ──────────┐\n"
-        f"│\n"
-        f"{inner}\n"
-        f"│\n"
-        f"└──────────────────────────────────────┘"
-        f"</code></pre>"
-    )
-    return code_box
 
 @bot.callback_query_handler(func=lambda c: c.data == "show_pattern")
 def show_pattern_callback(call):
@@ -3472,7 +3537,8 @@ def show_pattern_callback(call):
     gen_date = now_pht.strftime("%B %d, %Y")
     gen_time = now_pht.strftime("%I:%M %p PHT")
     
-    code_pattern_box = format_pattern_code(pattern)
+    code_pattern_box, badge_emoji = format_pattern_code(pattern)
+    emoji_line = f"{badge_emoji}\n" if badge_emoji else ""
 
     alert_text = (
         f"⚜️ <b>INJECTION PATTERN VERIFIED</b> ⚜️\n"
@@ -3481,7 +3547,7 @@ def show_pattern_callback(call):
         f"🎮 Game: <b>{safe_game}</b>\n"
         f"🏛 Platform: <b>{safe_casino}</b>\n\n"
         f"📋 <b>SPIN SEQUENCE:</b>\n"
-        f"{code_pattern_box}\n\n"
+        f"{emoji_line}{code_pattern_box}\n\n"
         f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang injection sequence bago matapos ang expiration window.</blockquote>"
     )
     try:
