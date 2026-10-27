@@ -3416,6 +3416,30 @@ def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_i
             )
         except: pass
 
+def format_pattern_code(raw_pattern):
+    lines = [line.strip() for line in str(raw_pattern).strip().splitlines() if line.strip()]
+    if not lines:
+        return "<pre><code>NO PATTERN LOADED</code></pre>"
+    
+    formatted_body = []
+    for line in lines:
+        if len(line) <= 4 and not line.isalnum():
+            formatted_body.append(f"  {line}")
+        else:
+            formatted_body.append(f"  ⚡ ▶ {line} ◀")
+    
+    inner = "\n".join(formatted_body)
+    code_box = (
+        f"<pre><code>"
+        f"┌── [INJECTION CODE: ACTIVE] ──────────┐\n"
+        f"│\n"
+        f"{inner}\n"
+        f"│\n"
+        f"└──────────────────────────────────────┘"
+        f"</code></pre>"
+    )
+    return code_box
+
 @bot.callback_query_handler(func=lambda c: c.data == "show_pattern")
 def show_pattern_callback(call):
     uid = call.from_user.id
@@ -3437,16 +3461,22 @@ def show_pattern_callback(call):
 
     safe_game = html.escape(str(game))
     safe_casino = html.escape(str(casino))
-    safe_pattern = html.escape(str(pattern))
     
+    now_pht = datetime.utcnow() + timedelta(hours=8)
+    gen_date = now_pht.strftime("%B %d, %Y")
+    gen_time = now_pht.strftime("%I:%M %p PHT")
+    
+    code_pattern_box = format_pattern_code(pattern)
+
     alert_text = (
         f"⚜️ <b>INJECTION PATTERN VERIFIED</b> ⚜️\n"
         f"━━━━━━━━━━━━━━━━━━\n"
+        f"Generated: <b>{gen_date}</b> at <b>{gen_time}</b>\n"
         f"🎮 Game: <b>{safe_game}</b>\n"
         f"🏛 Platform: <b>{safe_casino}</b>\n\n"
         f"📋 <b>SPIN SEQUENCE:</b>\n"
-        f"{safe_pattern}\n\n"
-        f"⚠️ <b>Paalala:</b> Sundin nang tumpak ang injection sequence bago matapos ang expiration window."
+        f"{code_pattern_box}\n\n"
+        f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang injection sequence bago matapos ang expiration window.</blockquote>"
     )
     try:
         bot.answer_callback_query(call.id, "📋 Pattern revealed below!")
