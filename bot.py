@@ -588,124 +588,72 @@ def trigger_menu(call):
     selected_casino = user_sessions.get(uid, {}).get("casino") or list(CASINO_DATA.keys())[0]
     user_sessions[uid]["casino"] = selected_casino
     
-    providers_list = ["JILI", "PRAGMATIC PLAY", "PG SOFT", "FA CHAI (FC)", "CQ9 GAMING", "JDB GAMING", "EVOLUTION", "PLAYTECH"]
+    prov_dict = PROVIDERS_DATA.get(selected_casino, {})
+    if not prov_dict and "DEFAULT_PROVIDERS_DATA" in globals():
+        prov_dict = DEFAULT_PROVIDERS_DATA
+    providers_list = list(prov_dict.keys()) if prov_dict else ["JILI", "PRAGMATIC PLAY", "PG SOFT", "NOLIMIT CITY", "FA CHAI", "JDB GAMING", "PLAY'N GO"]
     
-    kb = types.InlineKeyboardMarkup()
-    row = []
-    for p in providers_list:
-        btn = types.InlineKeyboardButton(f"🎰 {p}", callback_data=f"select_prov_{p}")
-        row.append(btn)
-        if len(row) == 2:
-            kb.row(*row)
-            row = []
-    if row:
-        kb.row(*row)
-        
-    kb.add(types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed"))
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add(types.KeyboardButton("🔙 BACK TO CASINOS"))
+    prov_btns = [types.KeyboardButton(p) for p in providers_list]
+    for i in range(0, len(prov_btns), 2):
+        kb.row(*prov_btns[i:i+2])
     
     text = f"""🏛 <b>SELECTED PLATFORM: {selected_casino}</b>
 ━━━━━━━━━━━━━━━━━━━━━━
-Pumili ng Game Provider upang ma-load ang tamang slot database:"""
+Pumili ng Game Provider sa keyboard sa ibaba upang ma-load ang tamang slot database:"""
     
-    msg = safe_wizard_edit(chat_id, msg_id, text, reply_markup=kb)
+    try: bot.delete_message(chat_id, msg_id)
+    except: pass
+    msg = bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
     if hasattr(msg, 'message_id'):
         user_sessions[uid]["last_msg"] = msg.message_id
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("select_prov_") or c.data.startswith("game_page_"))
-def handle_provider_select_inline(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    
-    try: bot.answer_callback_query(call.id)
-    except: pass
-    
-    page = 0
-    if call.data.startswith("select_prov_"):
-        prov_name = call.data.replace("select_prov_", "")
-        user_sessions[uid]["provider"] = prov_name
-    elif call.data.startswith("game_page_"):
-        parts = call.data.split("_")
-        prov_name = user_sessions.get(uid, {}).get("provider", "JILI")
-        page = int(parts[2]) if len(parts) > 2 else 0
-        
-    prov_name = user_sessions.get(uid, {}).get("provider", "JILI")
+def display_provider_games(chat_id, uid, prov_name):
     selected_casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
+    user_sessions[uid]["provider"] = prov_name
     
     raw_games = []
     if selected_casino in PROVIDERS_DATA and prov_name in PROVIDERS_DATA[selected_casino]:
         raw_games = PROVIDERS_DATA[selected_casino][prov_name]
-    elif prov_name in DEFAULT_PROVIDERS_DATA:
+    elif "DEFAULT_PROVIDERS_DATA" in globals() and prov_name in DEFAULT_PROVIDERS_DATA:
         raw_games = DEFAULT_PROVIDERS_DATA[prov_name]
     else:
         raw_games = [{"n": "Super Ace", "bb": 0}, {"n": "Fortune Gems", "bb": 0}]
 
-    games_per_page = 10
-    total_games = len(raw_games)
-    total_pages = (total_games + games_per_page - 1) // games_per_page if total_games > 0 else 1
-    if page < 0: page = 0
-    if page >= total_pages: page = max(0, total_pages - 1)
-    
-    start_idx = page * games_per_page
-    end_idx = start_idx + games_per_page
-    page_games = raw_games[start_idx:end_idx]
-    
-    kb = types.InlineKeyboardMarkup()
-    row = []
-    for g in page_games:
-        gname = g["n"] if isinstance(g, dict) else str(g)
-        btn = types.InlineKeyboardButton(f"🎯 {gname}", callback_data=f"select_game_{gname[:30]}")
-        row.append(btn)
-        if len(row) == 2:
-            kb.row(*row)
-            row = []
-    if row:
-        kb.row(*row)
-        
-    if total_pages > 1:
-        nav_row = []
-        if page > 0:
-            nav_row.append(types.InlineKeyboardButton("⬅️ Prev", callback_data=f"game_page_{page-1}"))
-        nav_row.append(types.InlineKeyboardButton(f"📄 {page+1}/{total_pages}", callback_data="ignore"))
-        if page < total_pages - 1:
-            nav_row.append(types.InlineKeyboardButton("Next ➡️", callback_data=f"game_page_{page+1}"))
-        kb.row(*nav_row)
+    display_names = [g["n"] if isinstance(g, dict) else str(g) for g in raw_games]
 
-    kb.add(
-        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
-        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
-    )
-    
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add(types.KeyboardButton("🔙 BACK TO PROVIDERS"), types.KeyboardButton("🔙 BACK TO CASINOS"))
+    game_btns = [types.KeyboardButton(n) for n in display_names]
+    for i in range(0, len(game_btns), 2):
+        kb.row(*game_btns[i:i+2])
+
     text = f"""🎮 <b>PLATFORM: {selected_casino} | PROVIDER: {prov_name}</b>
 ━━━━━━━━━━━━━━━━━━━━━━
-Pumili ng Laro para simulan ang real-time RNG audit:"""
-    
-    msg = safe_wizard_edit(chat_id, msg_id, text, reply_markup=kb)
+Showing {len(display_names)} Games Available. Pumili ng Laro sa keyboard sa ibaba para simulan ang real-time RNG audit:"""
+
+    msg = bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
     if hasattr(msg, 'message_id'):
         user_sessions[uid]["last_msg"] = msg.message_id
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("select_game_"))
-def handle_game_select_inline(call):
+@bot.callback_query_handler(func=lambda c: c.data.startswith("select_prov_"))
+def handle_provider_select_inline(call):
     uid = call.from_user.id
     chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    game_name = call.data.replace("select_game_", "")
-    
+    prov_name = call.data.replace("select_prov_", "")
     try: bot.answer_callback_query(call.id)
     except: pass
-    
-    user_sessions[uid]["game"] = game_name
-    casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
-    provider = user_sessions.get(uid, {}).get("provider", "JILI")
-    
-    run_gen_logic(chat_id, msg_id, uid, casino, game_name, provider)
+    display_provider_games(chat_id, uid, prov_name)
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_game")
 def change_game_callback(call):
     uid = call.from_user.id
+    chat_id = call.message.chat.id
     prov_name = user_sessions.get(uid, {}).get("provider", "JILI")
-    call.data = f"select_prov_{prov_name}"
-    handle_provider_select_inline(call)
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    display_provider_games(chat_id, uid, prov_name)
 
 def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
     uid = user_obj.id if hasattr(user_obj, 'id') else user_obj
