@@ -27,11 +27,13 @@ INTRO_IMAGE_URL = "https://i.imghippo.com/files/jFEp1747BHI.png"
 OFFICIAL_CHANNEL_URL = "https://t.me/+4kq9FVpuAyxjYzI1"
 
 # ================= CASINO LINKS DATABASE =================
-CASINO_DATA =     "AGILA CLUB": "https://casino-destination-intro-hph7-seven.vercel.app/?to=agilaclub",
+CASINO_DATA = {
+    "AGILA CLUB": "https://casino-destination-intro-hph7-seven.vercel.app/?to=agilaclub",
     "HAHA777": "https://casino-destination-intro-hph7-seven.vercel.app/?to=haha777",
     "TIKLUCK": "https://casino-destination-intro-hph7-seven.vercel.app/?to=tikluck",
     "JILIBET": "https://casino-destination-intro-hph7-seven.vercel.app/?to=jilibet",
     "BUGATTI PLAY": "https://casino-destination-intro-hph7-seven.vercel.app/?to=bugattiplay"
+}
 
 bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=10)
 
@@ -92,7 +94,7 @@ def save_user(uid):
 load_users()
 
 # ================= DATA: EXPANDED GAME LIST =================
-PROVIDERS_DATA = DEFAULT_PROVIDERS_DATA = {
+DEFAULT_PROVIDERS_DATA = {
         "PRAGMATIC PLAY": [
             {"n": "GATES OF OLYMPUS", "bb": 0}, {"n": "GATES OF OLYMPUS 1000", "bb": 1}, {"n": "SWEET BONANZA", "bb": 1}, {"n": "SWEET BONANZA 1000", "bb": 1}, {"n": "SUGAR RUSH", "bb": 0}, {"n": "SUGAR RUSH 1000", "bb": 1},
             {"n": "STARLIGHT PRINCESS", "bb": 1}, {"n": "STARLIGHT PRINCESS 1000", "bb": 1}, {"n": "THE DOG HOUSE", "bb": 0}, {"n": "THE DOG HOUSE MEGAWAYS", "bb": 1}, {"n": "THE DOG HOUSE MULTIHOLD", "bb": 0}, {"n": "FRUIT PARTY", "bb": 0},
@@ -285,7 +287,8 @@ PROVIDERS_DATA = {
     "BUGATTI PLAY": DEFAULT_PROVIDERS_DATA
 }
 
-SIGNALS =     "🟢\n10 Normal Spins -> 30 Turbo Spins",
+SIGNALS = [
+    "🟢\n10 Normal Spins -> 30 Turbo Spins",
     "🟡\n5 Quick Spins -> 15 Normal Spins",
     "🔥\n30 Turbo Spins then Buy Bonus",
     "🚀\n10 Turbo Spins -> 10 Quick Spins -> 5 Normal Spins then Buy Bonus",
@@ -418,6 +421,7 @@ SIGNALS =     "🟢\n10 Normal Spins -> 30 Turbo Spins",
     "🚙\n10 Normal Spins -> 20 Turbo Spins -> 30 Quick Spins",
     "🧭\n16 Normal Spins -> 16 Turbo Spins -> 16 Quick Spins",
     "🗺️\n8 Quick Spins -> 8 Normal Spins -> 8 Turbo Spins -> 8 Normal Spins"
+]
 
 def get_intro_card_text(first_name):
     safe_name = html.escape(str(first_name).strip()) if first_name else "VIP Player"
