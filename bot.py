@@ -664,7 +664,7 @@ SIGNALS = [
 def get_intro_card_text(first_name):
     safe_name = html.escape(str(first_name).strip()) if first_name else "VIP Player"
     return (
-        "⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️
+        ⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️
 "
         "━━━━━━━━━━━━━━━━━━━━━━
 "
