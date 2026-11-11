@@ -27,13 +27,11 @@ INTRO_IMAGE_URL = "https://i.imghippo.com/files/jFEp1747BHI.png"
 OFFICIAL_CHANNEL_URL = "https://t.me/+4kq9FVpuAyxjYzI1"
 
 # ================= CASINO LINKS DATABASE =================
-CASINO_DATA = {
-    "AGILA CLUB": "https://casino-destination-intro-hph7-seven.vercel.app/?to=agilaclub",
+CASINO_DATA =     "AGILA CLUB": "https://casino-destination-intro-hph7-seven.vercel.app/?to=agilaclub",
     "HAHA777": "https://casino-destination-intro-hph7-seven.vercel.app/?to=haha777",
     "TIKLUCK": "https://casino-destination-intro-hph7-seven.vercel.app/?to=tikluck",
     "JILIBET": "https://casino-destination-intro-hph7-seven.vercel.app/?to=jilibet",
     "BUGATTI PLAY": "https://casino-destination-intro-hph7-seven.vercel.app/?to=bugattiplay"
-}
 
 bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=10)
 
@@ -94,8 +92,7 @@ def save_user(uid):
 load_users()
 
 # ================= DATA: EXPANDED GAME LIST =================
-PROVIDERS_DATA = {
-DEFAULT_PROVIDERS_DATA = {
+PROVIDERS_DATA = DEFAULT_PROVIDERS_DATA = {
         "PRAGMATIC PLAY": [
             {"n": "GATES OF OLYMPUS", "bb": 0}, {"n": "GATES OF OLYMPUS 1000", "bb": 1}, {"n": "SWEET BONANZA", "bb": 1}, {"n": "SWEET BONANZA 1000", "bb": 1}, {"n": "SUGAR RUSH", "bb": 0}, {"n": "SUGAR RUSH 1000", "bb": 1},
             {"n": "STARLIGHT PRINCESS", "bb": 1}, {"n": "STARLIGHT PRINCESS 1000", "bb": 1}, {"n": "THE DOG HOUSE", "bb": 0}, {"n": "THE DOG HOUSE MEGAWAYS", "bb": 1}, {"n": "THE DOG HOUSE MULTIHOLD", "bb": 0}, {"n": "FRUIT PARTY", "bb": 0},
@@ -287,10 +284,8 @@ PROVIDERS_DATA = {
     "JILIBET": DEFAULT_PROVIDERS_DATA,
     "BUGATTI PLAY": DEFAULT_PROVIDERS_DATA
 }
-}
 
-SIGNALS = [
-    "🟢\n10 Normal Spins -> 30 Turbo Spins",
+SIGNALS =     "🟢\n10 Normal Spins -> 30 Turbo Spins",
     "🟡\n5 Quick Spins -> 15 Normal Spins",
     "🔥\n30 Turbo Spins then Buy Bonus",
     "🚀\n10 Turbo Spins -> 10 Quick Spins -> 5 Normal Spins then Buy Bonus",
@@ -423,7 +418,6 @@ SIGNALS = [
     "🚙\n10 Normal Spins -> 20 Turbo Spins -> 30 Quick Spins",
     "🧭\n16 Normal Spins -> 16 Turbo Spins -> 16 Quick Spins",
     "🗺️\n8 Quick Spins -> 8 Normal Spins -> 8 Turbo Spins -> 8 Normal Spins"
-]
 
 def get_intro_card_text(first_name):
     safe_name = html.escape(str(first_name).strip()) if first_name else "VIP Player"
@@ -764,8 +758,7 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
     v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
     fake_id = str(uuid.uuid4())[:8].upper()
     
-    valid_signals = SIGNALS if 'SIGNALS' in globals() and SIGNALS else [{"text": "🟢
-10 Normal Spins -> 30 Turbo Spins"}]
+    valid_signals = SIGNALS if 'SIGNALS' in globals() and SIGNALS else [{"text": "🟢\n10 Normal Spins -> 30 Turbo Spins"}]
     selected_sig = random.choice(valid_signals)
     pattern_text = selected_sig["text"] if isinstance(selected_sig, dict) else str(selected_sig)
     
@@ -811,16 +804,14 @@ def show_pattern_callback(call):
     
     game = user_sessions.get(uid, {}).get("game", "Super Ace")
     casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
-    pattern = user_sessions.get(uid, {}).get("pattern", "🟢
-10 Normal Spins -> 30 Turbo Spins")
+    pattern = user_sessions.get(uid, {}).get("pattern", "🟢\n10 Normal Spins -> 30 Turbo Spins")
     
     ph_now = datetime.utcnow() + timedelta(hours=8)
     gen_date = ph_now.strftime("%B %d, %Y")
     gen_time = ph_now.strftime("%I:%M %p PHT")
     
     pattern_box, badge_emoji = format_pattern_code(pattern)
-    emoji_header = f"{badge_emoji}
-" if badge_emoji else ""
+    emoji_header = f"{badge_emoji}\n" if badge_emoji else ""
     
     verified_text = f"""⚜️ <b>INJECTION PATTERN VERIFIED</b> ⚜️
 ━━━━━━━━━━━━━━━━━━━━━━
