@@ -663,26 +663,16 @@ SIGNALS = [
 
 def get_intro_card_text(first_name):
     safe_name = html.escape(str(first_name).strip()) if first_name else "VIP Player"
-    return (
-        ⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️
-"
-        "━━━━━━━━━━━━━━━━━━━━━━
-"
-        f"Mabuhay, <b>{safe_name}</b>!
-"
-        "<code>[SYSTEM: ONLINE] · [CORE: VIP-v5.8] · [LATENCY: 12ms]</code>
+    return f"""⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️
+━━━━━━━━━━━━━━━━━━━━━━
+Mabuhay, <b>{safe_name}</b>!
+<code>[SYSTEM: ONLINE] · [CORE: VIP-v5.8] · [LATENCY: 12ms]</code>
 
-"
-        "Welcome to the high-frequency <b>RNG Pattern Recognition & Seed Audit Architecture</b>. "
-        "Ang aming deep-learning engine ay sumusubaybay sa real-time casino seeds, platform RTP curves, at volatility shifts.
+Welcome to the high-frequency <b>RNG Pattern Recognition & Seed Audit Architecture</b>. Ang aming deep-learning engine ay sumusubaybay sa real-time casino seeds, platform RTP curves, at volatility shifts.
 
-"
-        "• 📊 <b>Live RNG Seed Audit:</b> <code>Real-time entropy accuracy</code>
-"
-        "• 🧬 <b>Quantum Seed Decoder:</b> <code>Active session sync</code>
-"
-        "• 🎯 <b>Dynamic Pattern Injection:</b> <code>99.2% precision lock</code>"
-    )
+• 📊 <b>Live RNG Seed Audit:</b> <code>Real-time entropy accuracy</code>
+• 🧬 <b>Quantum Seed Decoder:</b> <code>Active session sync</code>
+• 🎯 <b>Dynamic Pattern Injection:</b> <code>99.2% precision lock</code>"""
 
 def get_intro_keyboard():
     kb = types.InlineKeyboardMarkup(row_width=1)
@@ -780,13 +770,9 @@ def choose_casino_platform(target):
         
     kb.add(types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home"))
 
-    text = (
-        "🏗 <b>SELECT PLATFORM DATABASE</b>
-"
-        "━━━━━━━━━━━━━━━━━━━━━━
-"
-        "Choose your Casino Platform to load the correct RNG configuration:"
-    )
+    text = f"""🏗 <b>SELECT PLATFORM DATABASE</b>
+━━━━━━━━━━━━━━━━━━━━━━
+Choose your Casino Platform to load the correct RNG configuration:"""
 
     msg = safe_wizard_edit(chat_id, msg_id, text, reply_markup=kb)
     if hasattr(msg, 'message_id'):
@@ -814,23 +800,15 @@ def confirm_casino_selection(call):
         types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
     )
 
-    welcome_text = (
-        f"🏛 <b>PLATFORM SELECTED: {selected_casino}</b>
-"
-        "━━━━━━━━━━━━━━━━━━━━━━
-"
-        "To initialize the <b>RNG Synchronization Protocol</b>, please follow these steps:
+    welcome_text = f"""🏛 <b>PLATFORM SELECTED: {selected_casino}</b>
+━━━━━━━━━━━━━━━━━━━━━━
+To initialize the <b>RNG Synchronization Protocol</b>, please follow these steps:
 
-"
-        "1️⃣ Click the <b>Log in to Start</b> button below to open the secure portal.
-"
-        "2️⃣ Log in or Register your account on the official platform.
-"
-        "3️⃣ Once logged in, return to this bot and click <b>PROCEED TO SYSTEM</b>.
+1️⃣ Click the <b>Log in to Start</b> button below to open the secure portal.
+2️⃣ Log in or Register your account on the official platform.
+3️⃣ Once logged in, return to this bot and click <b>PROCEED TO SYSTEM</b>.
 
-"
-        "⚠️ <b>SYSTEM NOTE:</b> The AI algorithm only synchronizes with active sessions detected through our encrypted link."
-    )
+⚠️ <b>SYSTEM NOTE:</b> The AI algorithm only synchronizes with active sessions detected through our encrypted link."""
 
     msg = safe_wizard_edit(chat_id, msg_id, welcome_text, reply_markup=kb)
     if hasattr(msg, 'message_id'):
@@ -863,13 +841,9 @@ def trigger_menu(call):
         
     kb.add(types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed"))
     
-    text = (
-        f"🏛 <b>SELECTED PLATFORM: {selected_casino}</b>
-"
-        "━━━━━━━━━━━━━━━━━━━━━━
-"
-        "Pumili ng Game Provider upang ma-load ang tamang slot database:"
-    )
+    text = f"""🏛 <b>SELECTED PLATFORM: {selected_casino}</b>
+━━━━━━━━━━━━━━━━━━━━━━
+Pumili ng Game Provider upang ma-load ang tamang slot database:"""
     
     msg = safe_wizard_edit(chat_id, msg_id, text, reply_markup=kb)
     if hasattr(msg, 'message_id'):
@@ -940,13 +914,9 @@ def handle_provider_select_inline(call):
         types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
     )
     
-    text = (
-        f"🎮 <b>PLATFORM: {selected_casino} | PROVIDER: {prov_name}</b>
-"
-        "━━━━━━━━━━━━━━━━━━━━━━
-"
-        "Pumili ng Laro para simulan ang real-time RNG audit:"
-    )
+    text = f"""🎮 <b>PLATFORM: {selected_casino} | PROVIDER: {prov_name}</b>
+━━━━━━━━━━━━━━━━━━━━━━
+Pumili ng Laro para simulan ang real-time RNG audit:"""
     
     msg = safe_wizard_edit(chat_id, msg_id, text, reply_markup=kb)
     if hasattr(msg, 'message_id'):
@@ -1015,17 +985,11 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
 
     for stage in stages:
         meter = render_meter(stage["percent"], 10)
-        status_text = (
-            f"{stage['title']}
-"
-            f"━━━━━━━━━━━━━━━━━━━━━━
-"
-            f"<code>{stage['log']}</code>
-"
-            f"<code>{stage['detail']}</code>
-"
-            f"<code>[{meter}] {stage['percent']}% · {stage['ping']}</code>"
-        )
+        status_text = f"""{stage['title']}
+━━━━━━━━━━━━━━━━━━━━━━
+<code>{stage['log']}</code>
+<code>{stage['detail']}</code>
+<code>[{meter}] {stage['percent']}% · {stage['ping']}</code>"""
         msg = safe_wizard_edit(chat_id, message_id, status_text)
         if hasattr(msg, 'message_id'):
             message_id = msg.message_id
@@ -1094,25 +1058,16 @@ def show_pattern_callback(call):
     emoji_header = f"{badge_emoji}
 " if badge_emoji else ""
     
-    verified_text = (
-        f"⚜️ <b>INJECTION PATTERN VERIFIED</b> ⚜️
-"
-        f"━━━━━━━━━━━━━━━━━━━━━━
-"
-        f"Generated: <b>{gen_date}</b> at <b>{gen_time}</b>
-"
-        f"🎮 Game: <b>{html.escape(str(game))}</b>
-"
-        f"🏛 Platform: <b>{html.escape(str(casino))}</b>
+    verified_text = f"""⚜️ <b>INJECTION PATTERN VERIFIED</b> ⚜️
+━━━━━━━━━━━━━━━━━━━━━━
+Generated: <b>{gen_date}</b> at <b>{gen_time}</b>
+🎮 Game: <b>{html.escape(str(game))}</b>
+🏛 Platform: <b>{html.escape(str(casino))}</b>
 
-"
-        f"🎰 <b>PATTERN SPIN:</b>
-"
-        f"{emoji_header}{pattern_box}
+🎰 <b>PATTERN SPIN:</b>
+{emoji_header}{pattern_box}
 
-"
-        f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang pattern sequence bago matapos ang expiration window.</blockquote>"
-    )
+<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang pattern sequence bago matapos ang expiration window.</blockquote>"""
     
     inline_kb = types.InlineKeyboardMarkup(row_width=1)
     inline_kb.add(
@@ -1170,31 +1125,20 @@ def handle_how_to_use(call):
     try: bot.answer_callback_query(call.id)
     except: pass
     
-    guide_text = (
-        "📈 <b>SYSTEM INTEGRATION & OPERATIONS GUIDE</b>
-"
-        "━━━━━━━━━━━━━━━━━━━━━━
+    guide_text = f"""📈 <b>SYSTEM INTEGRATION & OPERATIONS GUIDE</b>
+━━━━━━━━━━━━━━━━━━━━━━
 
-"
-        "1️⃣ <b>PERFORM LIVE RNG AUDIT</b>
-"
-        "• Click <b>Start JACKPOT READER</b> on the main screen.
-"
-        "• Select your Casino Platform and Provider.
+1️⃣ <b>PERFORM LIVE RNG AUDIT</b>
+• Click <b>Start JACKPOT READER</b> on the main screen.
+• Select your Casino Platform and Provider.
 
-"
-        "2️⃣ <b>PLATFORM SELECTION & LOGIN</b>
-"
-        "• Log in to your casino account to pair session entropy.
+2️⃣ <b>PLATFORM SELECTION & LOGIN</b>
+• Log in to your casino account to pair session entropy.
 
-"
-        "3️⃣ <b>DEPLOY PATTERN SEQUENCE</b>
-"
-        "• Press <b>REVEAL INJECTION PATTERN</b> to view spin calibration.
+3️⃣ <b>DEPLOY PATTERN SEQUENCE</b>
+• Press <b>REVEAL INJECTION PATTERN</b> to view spin calibration.
 
-"
-        f"💬 <b>Official Channel:</b> {OFFICIAL_CHANNEL_URL}"
-    )
+💬 <b>Official Channel:</b> {OFFICIAL_CHANNEL_URL}"""
     
     kb = types.InlineKeyboardMarkup(row_width=1)
     kb.add(
