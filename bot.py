@@ -1625,7 +1625,7 @@ def render_meter(percent, length=10):
 def format_pattern_code(raw_pattern):
     raw_str = str(raw_pattern).strip()
     if not raw_str:
-        return "<pre><code>┌── INJECTION SEQUENCE\n│ [01] 25x Turbo Spins\n└──</code></pre>", ""
+        return "<pre><code>┌── 𝗣𝗔𝗧𝗧𝗘𝗥𝗡 𝗦𝗣𝗜𝗡\n│ [01] 25x Turbo Spins\n└──</code></pre>", ""
     
     lines = [l.strip() for l in raw_str.splitlines() if l.strip()]
     badge_emoji = ""
@@ -1642,7 +1642,7 @@ def format_pattern_code(raw_pattern):
     if not steps:
         steps = [lines[-1]] if lines else ["25 Turbo Spins"]
         
-    box_lines = ["┌── INJECTION SEQUENCE"]
+    box_lines = ["┌── 𝗣𝗔𝗧𝗧𝗘𝗥𝗡 𝗦𝗣𝗜𝗡"]
     for i, step in enumerate(steps, 1):
         box_lines.append(f"│ [{i:02d}] {step}")
     box_lines.append("└──")
@@ -3548,9 +3548,9 @@ def show_pattern_callback(call):
         f"Generated: <b>{gen_date}</b> at <b>{gen_time}</b>\n"
         f"🎮 Game: <b>{safe_game}</b>\n"
         f"🏛 Platform: <b>{safe_casino}</b>\n\n"
-        f"📋 <b>SPIN SEQUENCE:</b>\n"
+        f"🎰 <b>PATTERN SPIN:</b>\n"
         f"{emoji_line}{code_pattern_box}\n\n"
-        f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang injection sequence bago matapos ang expiration window.</blockquote>"
+        f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang pattern sequence bago matapos ang expiration window.</blockquote>"
     )
     try:
         bot.answer_callback_query(call.id, "📋 Pattern revealed below!")
