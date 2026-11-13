@@ -30,10 +30,21 @@ OFFICIAL_CHANNEL_URL = "https://t.me/+4kq9FVpuAyxjYzI1"
 CASINO_DATA = {
     "AGILA CLUB": "https://casino-destination-intro-hph7-seven.vercel.app/?to=agilaclub",
     "HAHA777": "https://casino-destination-intro-hph7-seven.vercel.app/?to=haha777",
-    "TIKLUCK": "https://casino-destination-intro-hph7-seven.vercel.app/?to=tikluck",
+    "TARASAYA": "https://casino-destination-intro-hph7-seven.vercel.app/?to=tarasaya",
     "JILIBET": "https://casino-destination-intro-hph7-seven.vercel.app/?to=jilibet",
-    "BUGATTI PLAY": "https://casino-destination-intro-hph7-seven.vercel.app/?to=bugattiplay"
+    "BUGATTI PLAY": "https://casino-destination-intro-hph7-seven.vercel.app/?to=bugattiplay",
+    "BINGOPLUS": "https://f.com",
+    "PLAYTIME": "https://t.com",
+    "GD EMERALD": "https://t.com",
+    "LOTUS PLAY": "https://",
+    "MACALLAN77": "https://t.com",
+    "LAMBO PLAY": "https://t.com",
+    "MASERATI PLAY": "https://t.com",
+    "INFERNO PLAY": "https://t.com"
 }
+
+# ================= DISABLED CASINOS SET =================
+DISABLED_CASINOS = set(["BINGOPLUS","PLAYTIME","GD EMERALD","LOTUS PLAY","MACALLAN77","LAMBO PLAY","MASERATI PLAY","INFERNO PLAY"])
 
 bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=10)
 
@@ -69,245 +80,6 @@ def is_admin(chat_id):
         return str(chat_id) == str(admin_val)
     except:
         return False
-
-def _safe_chunk_text(text, max_len=3000):
-    if not text:
-        return [""]
-    try:
-        utf16_len = len(text.encode('utf-16-le')) // 2
-    except:
-        utf16_len = len(text)
-    if utf16_len <= max_len:
-        return [text]
-
-    chunks = []
-    lines = text.splitlines()
-    current_chunk = ""
-
-    for line in lines:
-        test_chunk = (current_chunk + chr(10) + line) if current_chunk else line
-        try:
-            chunk_len = len(test_chunk.encode('utf-16-le')) // 2
-        except:
-            chunk_len = len(test_chunk)
-
-        if chunk_len <= max_len:
-            current_chunk = test_chunk
-        else:
-            if current_chunk:
-                chunks.append(current_chunk)
-                current_chunk = ""
-            try:
-                line_len = len(line.encode('utf-16-le')) // 2
-            except:
-                line_len = len(line)
-
-            if line_len > max_len:
-                words = line.split(" ")
-                for word in words:
-                    test_sub = current_chunk + (" " if current_chunk else "") + word
-                    try:
-                        sub_len = len(test_sub.encode('utf-16-le')) // 2
-                    except:
-                        sub_len = len(test_sub)
-                    if sub_len <= max_len:
-                        current_chunk = test_sub
-                    else:
-                        if current_chunk:
-                            chunks.append(current_chunk)
-                        current_chunk = word
-            else:
-                current_chunk = line
-
-    if current_chunk:
-        chunks.append(current_chunk)
-    return chunks if chunks else [text]
-
-_orig_send_message = bot.send_message
-def _secure_send_message(chat_id, text, **kwargs):
-    if 'protect_content' not in kwargs:
-        kwargs['protect_content'] = PROTECT_CONTENT and not is_admin(chat_id)
-
-    text_str = str(text) if text is not None else ""
-    try:
-        utf16_len = len(text_str.encode('utf-16-le')) // 2
-    except:
-        utf16_len = len(text_str)
-
-    if utf16_len <= 3800:
-        try:
-            return _orig_send_message(chat_id, text, **kwargs)
-        except Exception as e:
-            if "MESSAGE_TOO_LONG" not in str(e):
-                raise
-
-    # Split into safe chunks if too long or if MESSAGE_TOO_LONG occurred
-    chunks = _safe_chunk_text(text_str, max_len=3000)
-    last_msg = None
-    for idx, chunk in enumerate(chunks):
-        chunk_kwargs = dict(kwargs)
-        if idx < len(chunks) - 1 and 'reply_markup' in chunk_kwargs:
-            del chunk_kwargs['reply_markup']
-        try:
-            last_msg = _orig_send_message(chat_id, chunk, **chunk_kwargs)
-        except Exception as err:
-            if 'parse_mode' in chunk_kwargs:
-                chunk_kwargs.pop('parse_mode', None)
-                try:
-                    last_msg = _orig_send_message(chat_id, chunk, **chunk_kwargs)
-                except:
-                    pass
-            else:
-                raise err
-    return last_msg
-bot.send_message = _secure_send_message
-
-_orig_send_photo = bot.send_photo
-def _secure_send_photo(chat_id, photo, **kwargs):
-    if 'protect_content' not in kwargs:
-        kwargs['protect_content'] = PROTECT_CONTENT and not is_admin(chat_id)
-    if 'caption' in kwargs and kwargs['caption']:
-        cap = str(kwargs['caption'])
-        try:
-            cap_len = len(cap.encode('utf-16-le')) // 2
-        except:
-            cap_len = len(cap)
-        if cap_len > 1024:
-            kwargs['caption'] = cap[:1020] + "..."
-    # Auto-open binary file if string path to existing local file (e.g. 'banner.jpg') is provided
-    if isinstance(photo, str) and not photo.startswith(('http://', 'https://')):
-        if os.path.exists(photo):
-            with open(photo, 'rb') as pf:
-                return _orig_send_photo(chat_id, pf, **kwargs)
-    return _orig_send_photo(chat_id, photo, **kwargs)
-bot.send_photo = _secure_send_photo
-
-def send_menu_bubble(chat_id, text, reply_markup=None, photo=None, parse_mode="HTML"):
-    """
-    Sends message + buttons in a SINGLE container/bubble.
-    If photo is provided (used exclusively on /start), sends send_photo with caption and reply_markup in 1 call.
-    Otherwise (all other menus), sends send_message with text and reply_markup in 1 call (NO PHOTO).
-    """
-    target_photo = photo if (photo is not None and str(photo).strip() != "") else None
-    caption_text = str(text) if text is not None else ""
-    if target_photo:
-        # Telegram Bot API media caption limit is 1024 characters
-        clean_caption = caption_text if len(caption_text) <= 1024 else caption_text[:1020] + "..."
-        try:
-            if isinstance(target_photo, str) and not target_photo.startswith(('http://', 'https://')):
-                if os.path.exists(target_photo):
-                    with open(target_photo, 'rb') as pf:
-                        return bot.send_photo(
-                            chat_id=chat_id,
-                            photo=pf,
-                            caption=clean_caption,
-                            reply_markup=reply_markup,
-                            parse_mode=parse_mode
-                        )
-            return bot.send_photo(
-                chat_id=chat_id,
-                photo=target_photo,
-                caption=clean_caption,
-                reply_markup=reply_markup,
-                parse_mode=parse_mode
-            )
-        except Exception as e:
-            print(f"send_photo fallback to single send_message bubble: {e}")
-            return bot.send_message(
-                chat_id=chat_id,
-                text=caption_text,
-                reply_markup=reply_markup,
-                parse_mode=parse_mode
-            )
-    return bot.send_message(
-        chat_id=chat_id,
-        text=caption_text,
-        reply_markup=reply_markup,
-        parse_mode=parse_mode
-    )
-
-_orig_send_document = bot.send_document
-def _secure_send_document(chat_id, document, **kwargs):
-    if 'protect_content' not in kwargs:
-        kwargs['protect_content'] = PROTECT_CONTENT and not is_admin(chat_id)
-    if 'caption' in kwargs and kwargs['caption']:
-        cap = str(kwargs['caption'])
-        try:
-            cap_len = len(cap.encode('utf-16-le')) // 2
-        except:
-            cap_len = len(cap)
-        if cap_len > 1000:
-            kwargs['caption'] = cap[:990] + "..."
-    return _orig_send_document(chat_id, document, **kwargs)
-bot.send_document = _secure_send_document
-
-_orig_edit_message_text = bot.edit_message_text
-def _secure_edit_message_text(text, chat_id=None, message_id=None, inline_message_id=None, **kwargs):
-    text_str = str(text) if text is not None else ""
-    try:
-        utf16_len = len(text_str.encode('utf-16-le')) // 2
-    except:
-        utf16_len = len(text_str)
-    if utf16_len > 3800:
-        text_str = text_str[:3750] + "..."
-    return _orig_edit_message_text(text_str, chat_id=chat_id, message_id=message_id, inline_message_id=inline_message_id, **kwargs)
-bot.edit_message_text = _secure_edit_message_text
-
-_orig_copy_message = bot.copy_message
-def _secure_copy_message(chat_id, from_chat_id, message_id, **kwargs):
-    if 'protect_content' not in kwargs:
-        kwargs['protect_content'] = PROTECT_CONTENT and not is_admin(chat_id)
-    return _orig_copy_message(chat_id, from_chat_id, message_id, **kwargs)
-bot.copy_message = _secure_copy_message
-
-def render_meter(percent, length=10):
-    try:
-        filled = int(round((float(percent) / 100.0) * length))
-    except:
-        filled = 9
-    filled = max(0, min(length, filled))
-    return "■" * filled + "□" * (length - filled)
-
-def format_cyber_box(game, casino, provider, prob, fake_id, v_until):
-    safe_game = html.escape(str(game))
-    safe_casino = html.escape(str(casino))
-    safe_prov = html.escape(str(provider))
-    meter = render_meter(prob, 8)
-    
-    box_lines = [
-        "┌── PLATFORM DATA",
-        f"│ TARGET   : {safe_game}",
-        f"│ CASINO   : {safe_casino}",
-        f"│ PROVIDER : {safe_prov}",
-        f"│ ACCURACY : {prob:.2f}%",
-        f"│ METER    : [{meter}]",
-        f"│ VOLATILE : HIGH [SURGE PEAK]",
-        f"│ VALID TO : {v_until}",
-        "└──"
-    ]
-    box_text = "\n".join(box_lines)
-    
-    text = (
-        f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<pre>{box_text}</pre>\n"
-        f"<blockquote>💎 <b>INJECTION PROTOCOL:</b>\n"
-        f"Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence.</blockquote>"
-    )
-    return text
-
-def teleclaw_thinking(chat_id, action="Initializing Uplink", duration=2, final_text=None, reply_markup=None, call_id=None):
-    try:
-        bot.send_chat_action(chat_id, "typing")
-        time.sleep(0.3)
-        if call_id:
-            try:
-                bot.answer_callback_query(call_id)
-            except:
-                pass
-    except:
-        pass
-
 
 user_sessions = {}
 user_ids = set() 
@@ -521,10 +293,19 @@ DEFAULT_PROVIDERS_DATA = {
 PROVIDERS_DATA = {
     "AGILA CLUB": DEFAULT_PROVIDERS_DATA,
     "HAHA777": DEFAULT_PROVIDERS_DATA,
-    "TIKLUCK": DEFAULT_PROVIDERS_DATA,
+    "TARASAYA": DEFAULT_PROVIDERS_DATA,
     "JILIBET": DEFAULT_PROVIDERS_DATA,
-    "BUGATTI PLAY": DEFAULT_PROVIDERS_DATA
+    "BUGATTI PLAY": DEFAULT_PROVIDERS_DATA,
+    "BINGOPLUS": DEFAULT_PROVIDERS_DATA,
+    "PLAYTIME": DEFAULT_PROVIDERS_DATA,
+    "GD EMERALD": DEFAULT_PROVIDERS_DATA,
+    "LOTUS PLAY": DEFAULT_PROVIDERS_DATA,
+    "MACALLAN77": DEFAULT_PROVIDERS_DATA,
+    "LAMBO PLAY": DEFAULT_PROVIDERS_DATA,
+    "MASERATI PLAY": DEFAULT_PROVIDERS_DATA,
+    "INFERNO PLAY": DEFAULT_PROVIDERS_DATA
 }
+
 SIGNALS = [
     "🟢\n10 Normal Spins -> 30 Turbo Spins",
     "🟡\n5 Quick Spins -> 15 Normal Spins",
@@ -661,625 +442,253 @@ SIGNALS = [
     "🗺️\n8 Quick Spins -> 8 Normal Spins -> 8 Turbo Spins -> 8 Normal Spins"
 ]
 
-# ================= ANIMATION LOGIC =================
-def system_startup_animation(chat_id, message_id):
-    try:
-        bot.send_chat_action(chat_id, "typing")
-        time.sleep(0.3)
-    except:
-        pass
+def get_intro_card_text(first_name):
+    safe_name = html.escape(str(first_name).strip()) if first_name else "VIP Player"
+    return f"""⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️
+━━━━━━━━━━━━━━━━━━━━━━
+Mabuhay, <b>{safe_name}</b>!
+<code>[SYSTEM: ONLINE] · [CORE: VIP-v5.8] · [LATENCY: 12ms]</code>
 
-def logout_animation(chat_id, message_id):
-    steps = [
-        "🔴 <b>DISCONNECTING UPLINK...</b>\n<code>[CLOSING SECURE SOCKET]</code>",
-        "🔴 <b>CLEARING SESSION DATA...</b>\n<code>[CACHE WIPED]</code>",
-        "🔴 <b>SESSION TERMINATED SAFELY.</b>"
-    ]
-    for step in steps:
-        try:
-            bot.edit_message_text(step, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.5)
-        except: pass
+Welcome to the high-frequency <b>RNG Pattern Recognition & Seed Audit Architecture</b>. Ang aming deep-learning engine ay sumusubaybay sa real-time casino seeds, platform RTP curves, at volatility shifts.
 
-def reset_animation(chat_id, message_id):
-    steps = [
-        "🔄 <b>REBOOTING NEURAL CORE...</b>\n<code>[CYCLE 1/3]</code>",
-        "🔄 <b>RECALIBRATING RNG SENSORS...</b>\n<code>[CYCLE 2/3]</code>",
-        "🔄 <b>HARD RESET COMPLETE & READY.</b>\n<code>[CYCLE 3/3]</code>"
-    ]
-    for step in steps:
-        try:
-            bot.edit_message_text(step, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.5)
-        except: pass
+• 📊 <b>Live RNG Seed Audit:</b> <code>Real-time entropy accuracy</code>
+• 🧬 <b>Quantum Seed Decoder:</b> <code>Active session sync</code>
+• 🎯 <b>Dynamic Pattern Injection:</b> <code>99.2% precision lock</code>"""
 
-def display_provider_games(chat_id, uid, provider_name):
-    user_sessions[uid]["provider"] = provider_name
-    selected_casino = user_sessions[uid].get("casino")
-    games_list = PROVIDERS_DATA.get(selected_casino, {}).get(provider_name, [])
-    kb = types.InlineKeyboardMarkup(row_width=2)
-    game_btns = []
-    for g in games_list:
-        game_n = g["n"] if isinstance(g, dict) else g
-        game_btns.append(types.InlineKeyboardButton(game_n, callback_data=f"game:{game_n}"))
-    for i in range(0, len(game_btns), 2):
-        kb.row(*game_btns[i:i+2])
-    kb.row(types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"))
-
-    msg = send_menu_bubble(chat_id, f"🎰 <b>{html.escape(provider_name)}</b>\nShowing {len(games_list)} Games Available:", reply_markup=kb, photo=INTRO_IMAGE_URL)
-    user_sessions[uid]["last_msg"] = msg.message_id
-
-def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_id):
-    inline_kb = types.InlineKeyboardMarkup(row_width=1)
-    inline_kb.add(
-        types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"),
-        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
-        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
-        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
-        types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
+def get_intro_keyboard():
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("🚀 Start JACKPOT READER", callback_data="intro_proceed"),
+        types.InlineKeyboardButton("❓ How to use the system?", callback_data="howtouse_guide")
     )
+    return kb
 
-    try:
-        res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-        init_telemetry = (
-            f"{res_text}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ <b>RNG SYNCHRONIZATION ACTIVE:</b>\n"
-            f"<code>[SYS_SYNC] >> INITIATING PLATFORM HANDSHAKE...</code>"
-        )
-        bot.edit_message_text(
-            init_telemetry, 
-            chat_id, message_id, parse_mode="HTML", reply_markup=inline_kb
-        )
-    except: pass
-    time.sleep(1.2)
-
-    safe_casino = html.escape(str(selected_casino))
-    frames = [
-        (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[GATEWAY] >> CONNECTED TO {safe_casino.upper()}</code>\n"
-            f"<code>[LATENCY] >> 11ms · JITTER: 0.1ms</code>\n"
-            f"<code>[METER]   [■■■■■■■■■■] 100% ONLINE</code>"
-        ),
-        (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[RNG_SEED]>> DYNAMIC ENTROPY STREAMING</code>\n"
-            f"<code>[VOLAT]   >> SURGE COEFFICIENT: OPTIMAL (x1.42)</code>\n"
-            f"<code>[STATUS]  >> PATTERN TIME-LOCKED TO SESSION</code>"
-        ),
-        (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[MONITOR] >> LIVE RTP PEAK DETECTED</code>\n"
-            f"<code>[WINDOW]  >> VALIDATION RUNNING · DO NOT REFRESH</code>\n"
-            f"<code>[SIGNAL]  >> READY FOR EXECUTION</code>"
-        )
-    ]
-    
-    for frame in frames:
-        if uid not in user_sessions or user_sessions[uid].get("encoding") == False or user_sessions[uid].get("encoding_id") != session_id:
-            break
+def safe_wizard_edit(chat_id, message_id, text, reply_markup=None, parse_mode="HTML"):
+    """
+    Edits an existing message in-place for single-message wizard navigation.
+    Never sends new messages or deletes during inline button navigation.
+    """
+    if message_id:
         try:
-            res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=f"{res_text}\n\n━━━━━━━━━━━━━━━━━━━━━━\n{frame}",
-                parse_mode="HTML"
-            )
+            return bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=reply_markup, parse_mode=parse_mode, disable_web_page_preview=True)
         except Exception:
-            break 
-        time.sleep(1.2)
-
-    if uid in user_sessions and user_sessions[uid].get("encoding_id") == session_id:
-        user_sessions[uid]["encoding"] = False
-        res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-        final_footer = (
-            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
-            f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
-            f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
-        )
-        try:
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=f"{res_text}\n\n━━━━━━━━━━━━━━━━━━━━━━\n{final_footer}",
-                parse_mode="HTML",
-                reply_markup=inline_kb
-            )
-        except: pass
-
-
-# ================= HELPERS =================
-def delete_user_past_msg(chat_id, uid):
-    if user_sessions.get(uid, {}).get("last_msg"):
-        try: 
-            bot.delete_message(chat_id, user_sessions[uid]["last_msg"])
-        except: 
             pass
-    if user_sessions.get(uid, {}).get("last_pattern_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_pattern_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_pattern_msg_id"] = None
-    if user_sessions.get(uid, {}).get("last_guide_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_guide_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_guide_msg_id"] = None
-    if user_sessions.get(uid, {}).get("last_channel_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_channel_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_channel_msg_id"] = None
-    if user_sessions.get(uid, {}).get("last_reengagement_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_reengagement_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_reengagement_msg_id"] = None
-    if uid in user_sessions:
-        user_sessions[uid]["followup_token"] = None
-        user_sessions[uid]["active_loop_token"] = None
+    msg = bot.send_message(chat_id, text, reply_markup=reply_markup, parse_mode=parse_mode, disable_web_page_preview=True)
+    return msg
 
-# Handlers removed to avoid duplication with multi-casino logic
-# Old main_menu, show_games, pick_game moved to App.tsx generation
-
-# ================= ADMIN COMMANDS =================
-@bot.message_handler(commands=["protect"])
-def protect_toggle_cmd(message):
-    try:
-        admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-    except:
-        admin_id_val = 0
-    if message.from_user.id != admin_id_val: return
-    
-    new_val = not PROTECT_CONTENT
-    save_protect_setting(new_val)
-    status = "ENABLED (Bawal i-copy at i-forward)" if new_val else "DISABLED (Pwede nang i-copy/i-forward)"
-    bot.send_message(admin_id_val, f"👮‍♂️ <b>PROTECT CONTENT TOGGLED</b>\n━━━━━━━━━━━━━━━━━━━━━━\nStatus: <b>{status}</b>", parse_mode="HTML")
-
-@bot.message_handler(commands=["protecton"])
-def protect_on_cmd(message):
-    try:
-        admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-    except:
-        admin_id_val = 0
-    if message.from_user.id != admin_id_val: return
-    
-    save_protect_setting(True)
-    bot.send_message(admin_id_val, "👮‍♂️ <b>PROTECT CONTENT ENABLED</b>\n━━━━━━━━━━━━━━━━━━━━━━\nHindi na pwedeng i-copy o i-forward ang mga messages ng bot.", parse_mode="HTML")
-
-@bot.message_handler(commands=["protectoff"])
-def protect_off_cmd(message):
-    try:
-        admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-    except:
-        admin_id_val = 0
-    if message.from_user.id != admin_id_val: return
-    
-    save_protect_setting(False)
-    bot.send_message(admin_id_val, "👮‍♂️ <b>PROTECT CONTENT DISABLED</b>\n━━━━━━━━━━━━━━━━━━━━━━\nPwede nang i-copy, i-save at i-forward ang mga messages.", parse_mode="HTML")
-
-@bot.message_handler(commands=["stats"])
-def stats_cmd(message):
-    try:
-        admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-    except:
-        admin_id_val = 0
-        
-    if message.from_user.id != admin_id_val: return
-    total = len(user_ids)
-    bot.send_message(admin_id_val, f"📊 <b>BOT STATISTICS</b>\n━━━━━━━━━━━━━━━━━━━━━━\n👥 <b>Total Users:</b> {total}", parse_mode="HTML")
-
-@bot.message_handler(commands=["broadcast"])
-def broadcast_cmd(message):
-    try:
-        admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-    except:
-        admin_id_val = 0
-        
-    if message.from_user.id != admin_id_val: 
-         return
-    
-    # Notify admin that broadcast is starting
-    status_msg = bot.send_message(admin_id_val, "🛰 <b>Broadcasting started...</b>", parse_mode="HTML")
-    
-    target_msg = None
-    text_to_send = None
-    if message.reply_to_message:
-        target_msg = message.reply_to_message
-    else:
-        command_parts = message.text.split(None, 1)
-        if len(command_parts) < 2:
-            bot.edit_message_text("❌ <b>Usage:</b>\n1. Reply to any message with <code>/broadcast</code>\n2. <code>/broadcast Your message here</code>", chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
-            return
-        text_to_send = command_parts[1]
-
-    # Run broadcast in a separate thread to avoid blocking the bot
-    import threading
-    def run_broadcast():
-        success = 0
-        failed = 0
-        all_uids = list(user_ids)
-        total = len(all_uids)
-        
-        for i, uid in enumerate(all_uids):
-            if uid == admin_id_val: continue
-            try:
-                if target_msg:
-                    # copy_message with protect_content
-                    bot.copy_message(uid, message.chat.id, target_msg.message_id, protect_content=PROTECT_CONTENT)
-                else:
-                    # send_message with protect_content
-                    bot.send_message(uid, text_to_send, parse_mode="HTML", protect_content=PROTECT_CONTENT)
-                success += 1
-            except Exception as e:
-                # Handle rate limits if needed (429)
-                if hasattr(e, 'error_code') and e.error_code == 429:
-                    import time
-                    time.sleep(2) # Basic wait for rate limit
-                failed += 1
-            
-            # Periodic update for admin every 100 users or at the end
-            if (i + 1) % 100 == 0 or (i + 1) == total:
-                try:
-                    progress = (
-                        f"🛰 <b>Broadcasting...</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"👥 <b>Processed:</b> {i+1}/{total}\n"
-                        f"✅ <b>Success:</b> {success}\n"
-                        f"❌ <b>Failed:</b> {failed}"
-                    )
-                    bot.edit_message_text(progress, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
-                except: pass
-            
-            # Tiny delay to avoid aggressive flooding
-            import time
-            time.sleep(0.05)
-            
-        final_report = (
-            f"📢 <b>BROADCAST REPORT</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"✅ <b>Success:</b> {success}\n"
-            f"❌ <b>Failed:</b> {failed}\n"
-            f"👥 <b>Total Users:</b> {total}"
-        )
-        try:
-            bot.edit_message_text(final_report, chat_id=message.chat.id, message_id=status_msg.message_id, parse_mode="HTML")
-        except:
-            bot.send_message(admin_id_val, final_report, parse_mode="HTML")
-
-    threading.Thread(target=run_broadcast, daemon=True).start()
-
-# ================= HANDLERS =================
-@bot.message_handler(commands=["AgilaClub"])
-def agilaclub_cmd(message):
-    uid = message.from_user.id
-    
-    # Check if new for Admin Notification
-    is_new = uid not in user_ids
-    save_user(uid)
-    
-    # Delete previous bot message to keep chat clean
-    delete_user_past_msg(message.chat.id, uid)
-    
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True}
-    else:
-        user_sessions[uid]["is_logged_in"] = True
-
-    # Notify Admin ONLY if truly new session
-    if is_new:
-        try:
-            admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-            if admin_id_val:
-                username_str = f" (@{message.from_user.username})" if message.from_user.username else ""
-                bot.send_message(admin_id_val, f"🆕 <b>NEW USER STARTED BOT</b>\nUser: {message.from_user.first_name}{username_str}\nID: <code>{uid}</code>", parse_mode="HTML")
-        except: pass
-
-    # Find the matching "AGILA CLUB" casino in CASINO_DATA
-    selected_casino = "AGILA CLUB"
-    for c in CASINO_DATA.keys():
-        if "AGILA" in c.upper().replace(" ", ""):
-            selected_casino = c
-            break
-            
-    user_sessions[uid]["casino"] = selected_casino
-    
-    main_menu(message.chat.id, uid)
-
-@bot.message_handler(commands=["start"])
+@bot.message_handler(commands=['start'])
 def start_cmd(message):
     uid = message.from_user.id
-    
-    # Check if new for Admin Notification
-    is_new = uid not in user_ids
+    chat_id = message.chat.id
     save_user(uid)
     
-    # Delete previous bot message to keep chat clean
-    delete_user_past_msg(message.chat.id, uid)
-    
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": False}
-
-    # Notify Admin ONLY if truly new session
-    if is_new:
+    # Delete user's typed /start message to keep chat history clean
+    try:
+        bot.delete_message(chat_id, message.message_id)
+    except Exception:
+        pass
+        
+    # Delete old bot message if present
+    if uid in user_sessions and user_sessions[uid].get("last_msg"):
         try:
-            admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-            if admin_id_val:
-                username_str = f" (@{message.from_user.username})" if message.from_user.username else ""
-                bot.send_message(admin_id_val, f"🆕 <b>NEW USER STARTED BOT</b>\nUser: {message.from_user.first_name}{username_str}\nID: <code>{uid}</code>", parse_mode="HTML")
-        except: pass
+            bot.delete_message(chat_id, user_sessions[uid]["last_msg"])
+        except Exception:
+            pass
 
-    # INTRO SCREEN (Always show this)
-    user_fullname = (f"{message.from_user.first_name} {message.from_user.last_name}".strip() if message.from_user.last_name else message.from_user.first_name)
-    user_fullname = html.escape(user_fullname)
+    first_name = message.from_user.first_name if hasattr(message, 'from_user') and message.from_user else "VIP Player"
+    intro_text = get_intro_card_text(first_name)
+    kb = get_intro_keyboard()
+
+    msg = bot.send_message(chat_id, intro_text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
     
-    teleclaw_thinking(message.chat.id, "Initializing Uplink", duration=2)
+    user_sessions[uid] = {
+        "last_msg": msg.message_id,
+        "last_gen_time": 0,
+        "game": None,
+        "provider": None,
+        "encoding": False,
+        "casino": None,
+        "is_logged_in": True,
+        "is_resync": False
+    }
 
-    caption = (
-        f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"Mabuhay, <b>{user_fullname}</b>!\n\n"
-        f"<code>[SYSTEM: ONLINE] · [CORE: VIP-v5.8] · [LATENCY: 12ms]</code>\n\n"
-        f"Welcome to the high-frequency <b>RNG Pattern Recognition & Seed Audit Architecture</b>. Ang aming deep-learning engine ay sumusubaybay sa real-time casino seeds, platform RTP curves, at volatility shifts.\n\n"
-        f"<b>SLOT JACKPOT READER SUITE:</b>\n"
-        f"• 📊 <b>Live RNG Seed Audit:</b> <code>Real-time entropy accuracy</code>\n"
-        f"• 🧬 <b>Quantum Seed Decoder:</b> <code>Active session sync</code>\n"
-        f"• 🎯 <b>Dynamic Pattern Injection:</b> <code>99.2% precision lock</code>\n\n"
-        f"Pindutin ang <b>Start JACKPOT READER</b> upang simulan ang secure system handshake."
-    )
-
-    
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    if not user_sessions[uid].get("is_logged_in"):
-        kb.add(
-            types.InlineKeyboardButton("🚀 Start JACKPOT READER", callback_data="user_login")
-        )
+@bot.callback_query_handler(func=lambda c: c.data in ["intro_proceed", "change_platform"])
+def choose_casino_platform(target):
+    if hasattr(target, "message"):
+        chat_id = target.message.chat.id
+        uid = target.from_user.id
+        msg_id = target.message.message_id
+        call_id = getattr(target, "id", None)
+    elif hasattr(target, "chat"):
+        chat_id = target.chat.id
+        uid = target.from_user.id
+        msg_id = user_sessions.get(uid, {}).get("last_msg")
+        call_id = None
     else:
-        kb.add(types.InlineKeyboardButton("🚀 INITIALIZE SYSTEM", callback_data="intro_proceed"))
-
-    kb.add(types.InlineKeyboardButton("❓ How to use the system?", callback_data="how_to_use"))
-
-    msg = send_menu_bubble(message.chat.id, caption, reply_markup=kb, photo=INTRO_IMAGE_URL)
-    user_sessions[uid]["last_msg"] = msg.message_id
-
-@bot.callback_query_handler(func=lambda c: c.data == "how_to_use")
-def handle_how_to_use(call):
-    uid = call.from_user.id
-    try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    teleclaw_thinking(call.message.chat.id, "Working", duration=2, call_id=call.id)
-    
-    kb = types.InlineKeyboardMarkup(row_width=1).add(
-        types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home")
-    )
-    
-    how_to_use_text = (
-        "📈 <b>SYSTEM INTEGRATION & OPERATIONS GUIDE</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Sundin ang aming opisyal na step-by-step VIP algorithm procedure:\n\n"
-        "1️⃣ <b>PERFORM LIVE RNG AUDIT</b>\n"
-        "• I-click ang <b>Start JACKPOT READER</b> sa main screen.\n"
-        "• Pindutin ang 📊 <b>CHECK LIVE RNG ANALYSIS</b> para masuri ang flow accuracy bago magsimula.\n\n"
-        "2️⃣ <b>PLATFORM SELECTION</b>\n"
-        "• Piliin ang iyong nilalaruang Casino Platform upang ma-load ang tamang live server parameters.\n\n"
-        "3️⃣ <b>PLATFORM SYNCHRONIZATION</b>\n"
-        "• Gamitin ang <b>LOG IN TO START</b> portal upang maisabay ng aming AI reader ang pattern cycle sa active session ng iyong account.\n\n"
-        "4️⃣ <b>DEPLOY PATTERN SEQUENCE</b>\n"
-        "• Piliin ang laro at pindutin ang <b>REVEAL INJECTION PATTERN</b> upang sundin ang calibrated spin sequence bago matapos ang expiration window.\n\n"
-        "<blockquote>💬 <i>Official Channel & Support:</i> https://t.me/+4kq9FVpuAyxjYzI1</blockquote>"
-    )
-    msg = send_menu_bubble(call.message.chat.id, how_to_use_text, reply_markup=kb, photo=None)
-    user_sessions[uid]["last_msg"] = msg.message_id
-
-@bot.callback_query_handler(func=lambda c: c.data == "back_to_home")
-def back_to_home(call):
-    uid = call.from_user.id
-    try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    teleclaw_thinking(call.message.chat.id, "Working", duration=1, call_id=call.id)
-    
-    # We simulate a "message" object for start_cmd
-    class FakeMsg:
-        def __init__(self, m):
-            self.chat = m.chat
-            self.from_user = m.from_user
-            self.text = "/start"
-            self.message_id = m.message_id
-    
-    start_cmd(FakeMsg(call.message))
-
-@bot.callback_query_handler(func=lambda c: c.data == "user_login")
-def handle_user_login(call):
-    uid = call.from_user.id
-    try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    teleclaw_thinking(call.message.chat.id, "Hacking", duration=2, call_id=call.id)
-    
-    kb = types.InlineKeyboardMarkup()
-    kb.row(types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/slotpatternbot/winrate"))
-    kb.row(
-        types.InlineKeyboardButton("🚀 PROCEED", callback_data="user_login_proceed"),
-        types.InlineKeyboardButton("🔙 HOME", callback_data="back_to_home")
-    )
-    
-    caption = (
-        "📊 <b>REAL-TIME SEED ACCURACY AUDIT</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Bago simulan ang system tracking mechanics, mangyaring suriin muna ang live RNG metrics ng mga verified platforms na may mataas na win rate at optimal accuracy levels.\n\n"
-        "I-click ang <b>CHECK LIVE RNG ANALYSIS</b> sa ibaba, at pagkatapos ay piliin ang <b>PROCEED TO SYSTEM</b> upang magpatuloy."
-    )
-    msg = send_menu_bubble(call.message.chat.id, caption, reply_markup=kb, photo=None)
-    user_sessions[uid]["last_msg"] = msg.message_id
-
-@bot.callback_query_handler(func=lambda c: c.data == "user_login_proceed")
-def handle_user_login_proceed(call):
-    uid = call.from_user.id
-    user_sessions[uid]["is_logged_in"] = True
-    
-    teleclaw_thinking(call.message.chat.id, "Working", duration=2, call_id=call.id)
-    
-    # Proceed to casino selection
-    choose_casino_platform(call)
-
-@bot.callback_query_handler(func=lambda c: c.data == "intro_proceed")
-def choose_casino_platform(call):
-    uid = call.from_user.id
-    
-    # Check if logged in
-    if not user_sessions.get(uid, {}).get("is_logged_in"):
-        bot.answer_callback_query(call.id, "⚠️ You need to log in first!", show_alert=True)
         return
 
-    delete_user_past_msg(call.message.chat.id, uid)
+    if uid not in user_sessions:
+        user_sessions[uid] = {"last_msg": msg_id, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_resync": False}
+    else:
+        user_sessions[uid]["is_resync"] = False
 
-    teleclaw_thinking(call.message.chat.id, "Working", duration=2, call_id=call.id)
+    if call_id:
+        try: bot.answer_callback_query(call_id)
+        except: pass
 
-    kb = types.InlineKeyboardMarkup(row_width=2)
-    cas_btns = [types.InlineKeyboardButton(f"🏛 {casino}", callback_data=f"set_casino_{casino}") for casino in CASINO_DATA.keys()]
-    for i in range(0, len(cas_btns), 2):
-        kb.row(*cas_btns[i:i+2])
-    kb.row(types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home"))
+    kb = types.InlineKeyboardMarkup()
+    casinos_list = list(CASINO_DATA.keys())
+    
+    row = []
+    for casino in casinos_list:
+        btn = types.InlineKeyboardButton(f"🏛 {casino}", callback_data=f"set_casino_{casino}")
+        row.append(btn)
+        if len(row) == 2:
+            kb.row(*row)
+            row = []
+    if row:
+        kb.row(*row)
+        
+    kb.add(types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home"))
 
-    msg = send_menu_bubble(call.message.chat.id, "🏗 <b>SELECT PLATFORM DATABASE</b>\n━━━━━━━━━━━━━━━━━━━━━━\nChoose your Casino Platform to load the correct RNG server parameters and calibrated hit frequencies:", reply_markup=kb, photo=None)
-    user_sessions[uid]["last_msg"] = msg.message_id
+    text = f"""🏗 <b>SELECT PLATFORM DATABASE</b>
+━━━━━━━━━━━━━━━━━━━━━━
+Choose your Casino Platform to load the correct RNG configuration:"""
+
+    msg = safe_wizard_edit(chat_id, msg_id, text, reply_markup=kb)
+    if hasattr(msg, 'message_id'):
+        user_sessions[uid]["last_msg"] = msg.message_id
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_casino_"))
 def confirm_casino_selection(call):
     uid = call.from_user.id
+    chat_id = call.message.chat.id
+    msg_id = call.message.message_id
     selected_casino = call.data.replace("set_casino_", "")
-    user_sessions[uid]["casino"] = selected_casino
+    
+    if selected_casino in DISABLED_CASINOS:
+        try:
+            bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
+        except:
+            pass
+        return
 
+    user_sessions[uid]["casino"] = selected_casino
+    
     reg_link = CASINO_DATA.get(selected_casino, "https://google.com")
     if not reg_link.startswith("http://") and not reg_link.startswith("https://"):
         reg_link = "https://" + reg_link
-    elif reg_link.startswith("http://"):
-        reg_link = reg_link.replace("http://", "https://")
 
-    delete_user_past_msg(call.message.chat.id, uid)
+    try: bot.answer_callback_query(call.id)
+    except: pass
 
-    teleclaw_thinking(call.message.chat.id, "Hacking", duration=3, call_id=call.id)
-
-    kb = types.InlineKeyboardMarkup()
-    if reg_link.startswith("https://"):
-        kb.row(types.InlineKeyboardButton("🔐 LOG IN TO START", web_app=types.WebAppInfo(url=reg_link)))
-    else:
-        kb.row(types.InlineKeyboardButton("🔐 LOG IN TO START", url=reg_link))
-    kb.row(
-        types.InlineKeyboardButton("🚀 PROCEED", callback_data="open_menu"),
-        types.InlineKeyboardButton("🔙 CASINOS", callback_data="intro_proceed")
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("🔐 LOG IN TO START", url=reg_link),
+        types.InlineKeyboardButton("🚀 PROCEED TO SYSTEM", callback_data="open_menu"),
+        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
     )
+
+    welcome_text = f"""🏛 <b>PLATFORM SELECTED: {selected_casino}</b>
+━━━━━━━━━━━━━━━━━━━━━━
+To initialize the <b>RNG Synchronization Protocol</b>, please follow these steps:
+
+1️⃣ Click the <b>Log in to Start</b> button below to open the secure portal.
+2️⃣ Log in or Register your account on the official platform.
+3️⃣ Once logged in, return to this bot and click <b>PROCEED TO SYSTEM</b>.
+
+⚠️ <b>SYSTEM NOTE:</b> The AI algorithm only synchronizes with active sessions detected through our encrypted link."""
+
+    msg = safe_wizard_edit(chat_id, msg_id, welcome_text, reply_markup=kb)
+    if hasattr(msg, 'message_id'):
+        user_sessions[uid]["last_msg"] = msg.message_id
+
+@bot.callback_query_handler(func=lambda c: c.data in ["open_menu", "back_to_providers"])
+def trigger_menu(call):
+    uid = call.from_user.id
+    chat_id = call.message.chat.id
+    msg_id = call.message.message_id
     
-    welcome_text = (
-        f"🏛 <b>PLATFORM SELECTED: {selected_casino}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "To initialize the <b>RNG Synchronization Protocol</b>, follow these instructions:\n\n"
-        "1️⃣ Click <b>LOG IN TO START</b> below to open the secure platform.\n"
-        "2️⃣ Log in or Register your account on the verified site.\n"
-        "3️⃣ Return here and click <b>PROCEED TO SYSTEM</b>.\n\n"
-        "<blockquote>⚠️ <i>The AI algorithm only synchronizes with active sessions detected through our link.</i></blockquote>"
-    )
-    msg = send_menu_bubble(call.message.chat.id, welcome_text, reply_markup=kb, photo=None)
-    user_sessions[uid]["last_msg"] = msg.message_id
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    
+    selected_casino = user_sessions.get(uid, {}).get("casino") or list(CASINO_DATA.keys())[0]
+    user_sessions[uid]["casino"] = selected_casino
+    
+    prov_dict = PROVIDERS_DATA.get(selected_casino, {})
+    if not prov_dict and "DEFAULT_PROVIDERS_DATA" in globals():
+        prov_dict = DEFAULT_PROVIDERS_DATA
+    providers_list = list(prov_dict.keys()) if prov_dict else ["JILI", "PRAGMATIC PLAY", "PG SOFT", "NOLIMIT CITY", "FA CHAI", "JDB GAMING", "PLAY'N GO"]
+    
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add(types.KeyboardButton("🔙 BACK TO CASINOS"))
+    prov_btns = [types.KeyboardButton(p) for p in providers_list]
+    for i in range(0, len(prov_btns), 2):
+        kb.row(*prov_btns[i:i+2])
+    
+    text = f"""🏛 <b>SELECTED PLATFORM: {selected_casino}</b>
+━━━━━━━━━━━━━━━━━━━━━━
+Pumili ng Game Provider sa keyboard sa ibaba upang ma-load ang tamang slot database:"""
+    
+    try: bot.delete_message(chat_id, msg_id)
+    except: pass
+    msg = bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
+    if hasattr(msg, 'message_id'):
+        user_sessions[uid]["last_msg"] = msg.message_id
 
-# show_pattern moved to App.tsx
+def display_provider_games(chat_id, uid, prov_name):
+    selected_casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
+    user_sessions[uid]["provider"] = prov_name
+    
+    raw_games = []
+    if selected_casino in PROVIDERS_DATA and prov_name in PROVIDERS_DATA[selected_casino]:
+        raw_games = PROVIDERS_DATA[selected_casino][prov_name]
+    elif "DEFAULT_PROVIDERS_DATA" in globals() and prov_name in DEFAULT_PROVIDERS_DATA:
+        raw_games = DEFAULT_PROVIDERS_DATA[prov_name]
+    else:
+        raw_games = [{"n": "Super Ace", "bb": 0}, {"n": "Fortune Gems", "bb": 0}]
 
-@bot.message_handler(func=lambda m: m.text in ["🔄 Re-Generate Pattern", "🔄 RE-SYNC RNG DATA", "🔄 Re-Sync RNG Data"])
-def regenerate_btn(message):
-    uid = message.from_user.id
-    chat_id = message.chat.id
-    msg = bot.send_message(chat_id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
-    run_gen_logic(chat_id, msg.message_id, message.from_user, user_sessions[uid].get("casino", "UNKNOWN"), user_sessions[uid].get("game", "UNKNOWN"), user_sessions[uid].get("provider", "UNKNOWN"))
+    display_names = [g["n"] if isinstance(g, dict) else str(g) for g in raw_games]
 
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    kb.add(types.KeyboardButton("🔙 BACK TO PROVIDERS"), types.KeyboardButton("🔙 BACK TO CASINOS"))
+    game_btns = [types.KeyboardButton(n) for n in display_names]
+    for i in range(0, len(game_btns), 2):
+        kb.row(*game_btns[i:i+2])
+
+    text = f"""🎮 <b>PLATFORM: {selected_casino} | PROVIDER: {prov_name}</b>
+━━━━━━━━━━━━━━━━━━━━━━
+Showing {len(display_names)} Games Available. Pumili ng Laro sa keyboard sa ibaba para simulan ang real-time RNG audit:"""
+
+    msg = bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
+    if hasattr(msg, 'message_id'):
+        user_sessions[uid]["last_msg"] = msg.message_id
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("select_prov_"))
+def handle_provider_select_inline(call):
+    uid = call.from_user.id
+    chat_id = call.message.chat.id
+    prov_name = call.data.replace("select_prov_", "")
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    display_provider_games(chat_id, uid, prov_name)
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_game")
 def change_game_callback(call):
     uid = call.from_user.id
-    provider = user_sessions[uid].get("provider")
-    if not provider:
-        bot.answer_callback_query(call.id, "⚠️ Provider not found!", show_alert=True)
-        main_menu(call.message.chat.id, uid)
-        return
-    
-    user_sessions[uid]["encoding"] = False
-    user_sessions[uid]["encoding_id"] = None
-    delete_user_past_msg(call.message.chat.id, uid)
-    display_provider_games(call.message.chat.id, uid, provider)
-
-@bot.callback_query_handler(func=lambda c: c.data == "change_platform")
-def change_platform_callback(call):
-    uid = call.from_user.id
-    user_sessions[uid]["encoding"] = False
-    user_sessions[uid]["encoding_id"] = None
-    
-    # Logout animation
-    logout_animation(call.message.chat.id, call.message.message_id)
-    time.sleep(0.5)
-    
-    # Clear session but keep logged in
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True}
-    choose_casino_platform(call)
-
-@bot.callback_query_handler(func=lambda c: c.data == "reset_system")
-def reset_system_callback(call):
-    uid = call.from_user.id
-    
-    # Reset animation
-    reset_animation(call.message.chat.id, call.message.message_id)
-    time.sleep(0.5)
-    
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True}
-    choose_casino_platform(call)
-
-@bot.callback_query_handler(func=lambda c: c.data == "open_menu")
-def trigger_menu(call):
-    uid = call.from_user.id
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    main_menu(call.message.chat.id, uid)
-
-# Old show_games removed
-
-@bot.message_handler(func=lambda m: m.text == "🔙 BACK")
-def back_to_prov(message): 
-    try: bot.delete_message(message.chat.id, message.message_id)
+    chat_id = call.message.chat.id
+    prov_name = user_sessions.get(uid, {}).get("provider", "JILI")
+    try: bot.answer_callback_query(call.id)
     except: pass
-    main_menu(message.chat.id, message.from_user.id)
-
-# Old pick_game removed
+    display_provider_games(chat_id, uid, prov_name)
 
 def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
     uid = user_obj.id if hasattr(user_obj, 'id') else user_obj
-    if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 20:
-        bot.send_message(chat_id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...")
-        return
-
+    if uid not in user_sessions:
+        user_sessions[uid] = {}
+        
     user_sessions[uid]["last_gen_time"] = time.time()
     
-    # NOTIFY ADMIN OF GENERATION
-    try:
-        admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-        if admin_id_val:
-            name = ""
-            username = ""
-            if hasattr(user_obj, 'first_name'):
-                name = user_obj.first_name + (f" {user_obj.last_name}" if user_obj.last_name else "")
-                username = f" (@{user_obj.username})" if user_obj.username else ""
-            bot.send_message(admin_id_val, f"📊 <b>SIGNAL GENERATED</b>\nUser: {name}{username} (<code>{uid}</code>)\n🏛 <b>Casino:</b> {casino}\n🎮 <b>Provider:</b> {provider}\n🎰 <b>Game:</b> {game}", parse_mode="HTML")
-    except: pass
-
-    # 4-STAGE REALISTIC VIP TELEMETRY ANIMATION
     stages = [
         {
             "title": "⚡ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>UPLINK</code>",
@@ -1313,303 +722,179 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
 
     for stage in stages:
         meter = render_meter(stage["percent"], 10)
-        status_text = (
-            f"{stage['title']}\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"<code>{stage['log']}</code>\n"
-            f"<code>{stage['detail']}</code>\n"
-            f"<code>[{meter}] {stage['percent']}% · {stage['ping']}</code>"
-        )
-        try:
-            bot.edit_message_text(status_text, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.75)
-        except: pass
-
-    try: bot.delete_message(chat_id, message_id)
-    except: pass
-
-    # Delete last generated messages
-    if user_sessions[uid].get("last_msg"):
-        try: bot.delete_message(chat_id, user_sessions[uid]["last_msg"])
-        except: pass
-    if user_sessions[uid].get("last_kb_msg"):
-        try: bot.delete_message(chat_id, user_sessions[uid]["last_kb_msg"])
-        except: pass
+        status_text = f"""{stage['title']}
+━━━━━━━━━━━━━━━━━━━━━━
+<code>{stage['log']}</code>
+<code>{stage['detail']}</code>
+<code>[{meter}] {stage['percent']}% · {stage['ping']}</code>"""
+        msg = safe_wizard_edit(chat_id, message_id, status_text)
+        if hasattr(msg, 'message_id'):
+            message_id = msg.message_id
+            user_sessions[uid]["last_msg"] = message_id
+        time.sleep(0.75)
 
     ph_now = datetime.utcnow() + timedelta(hours=8)
     v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
-
     fake_id = str(uuid.uuid4())[:8].upper()
-
-    if "PG" in provider.upper():
-        valid_signals = [s for s in SIGNALS if "Turbo" not in s]
-    else:
-        valid_signals = SIGNALS
     
-    if not valid_signals:
-        valid_signals = SIGNALS
+    valid_signals = SIGNALS if 'SIGNALS' in globals() and SIGNALS else [{"text": "🟢\n10 Normal Spins -> 30 Turbo Spins"}]
+    selected_sig = random.choice(valid_signals)
+    pattern_text = selected_sig["text"] if isinstance(selected_sig, dict) else str(selected_sig)
     
     prob_val = random.uniform(96.5, 99.4)
-    result_text = format_cyber_box(game, casino, provider, prob_val, fake_id, v_until)
+    user_sessions[uid]["game"] = game
+    user_sessions[uid]["casino"] = casino
+    user_sessions[uid]["provider"] = provider
+    user_sessions[uid]["fake_id"] = fake_id
+    user_sessions[uid]["v_until"] = v_until
+    user_sessions[uid]["prob"] = prob_val
+    user_sessions[uid]["pattern"] = pattern_text
 
-    user_sessions[uid]["result_text"] = result_text
-    user_sessions[uid]["pattern"] = random.choice(valid_signals)
-    user_sessions[uid]["encoding"] = True 
-    session_id = str(uuid.uuid4())
-    user_sessions[uid]["encoding_id"] = session_id
+    is_resync = user_sessions[uid].get("is_resync", False)
     
-    # Inline buttons for everything (Chess bot compact grid layout)
-    inline_kb = types.InlineKeyboardMarkup()
-    inline_kb.row(types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"))
-    inline_kb.row(types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"))
-    inline_kb.row(
-        types.InlineKeyboardButton("🔙 GAMES", callback_data="change_game"),
-        types.InlineKeyboardButton("🔙 PROVIDERS", callback_data="open_menu"),
-        types.InlineKeyboardButton("🔙 CASINOS", callback_data="change_platform")
+    inline_kb = types.InlineKeyboardMarkup(row_width=1)
+    if not is_resync:
+        inline_kb.add(types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"))
+    
+    inline_kb.add(
+        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
+        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
+        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
+        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
     )
-    
-    # Remove any lingering ReplyKeyboardMarkup
-    remove_kb = types.ReplyKeyboardRemove()
-    
-    # Send message with all inline buttons
-    msg = bot.send_message(chat_id, result_text, reply_markup=inline_kb, parse_mode="HTML")
-    
-    user_sessions[uid]["last_msg"] = msg.message_id
-    user_sessions[uid]["last_kb_msg"] = None
 
-    # Start the live encoding animation thread
-    t = threading.Thread(target=live_encoding_animation, args=(chat_id, msg.message_id, uid, casino, session_id))
-    t.daemon = True
-    t.start()
+    if is_resync:
+        result_text = format_cyber_box(game, casino, provider, prob_val, fake_id, v_until, direct_pattern=pattern_text)
+    else:
+        result_text = format_cyber_box(game, casino, provider, prob_val, fake_id, v_until)
+
+    msg = safe_wizard_edit(chat_id, message_id, result_text, reply_markup=inline_kb)
+    if hasattr(msg, 'message_id'):
+        user_sessions[uid]["last_msg"] = msg.message_id
+
+@bot.callback_query_handler(func=lambda c: c.data == "show_pattern")
+def show_pattern_callback(call):
+    uid = call.from_user.id
+    chat_id = call.message.chat.id
+    msg_id = call.message.message_id
+    
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    
+    game = user_sessions.get(uid, {}).get("game", "Super Ace")
+    casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
+    pattern = user_sessions.get(uid, {}).get("pattern", "🟢\n10 Normal Spins -> 30 Turbo Spins")
+    
+    ph_now = datetime.utcnow() + timedelta(hours=8)
+    gen_date = ph_now.strftime("%B %d, %Y")
+    gen_time = ph_now.strftime("%I:%M %p PHT")
+    
+    pattern_box, badge_emoji = format_pattern_code(pattern)
+    emoji_header = f"{badge_emoji}\n" if badge_emoji else ""
+    
+    verified_text = f"""⚜️ <b>INJECTION PATTERN VERIFIED</b> ⚜️
+━━━━━━━━━━━━━━━━━━━━━━
+Generated: <b>{gen_date}</b> at <b>{gen_time}</b>
+🎮 Game: <b>{html.escape(str(game))}</b>
+🏛 Platform: <b>{html.escape(str(casino))}</b>
+
+🎰 <b>PATTERN SPIN:</b>
+{emoji_header}{pattern_box}
+
+<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang pattern sequence bago matapos ang expiration window.</blockquote>"""
+    
+    inline_kb = types.InlineKeyboardMarkup(row_width=1)
+    inline_kb.add(
+        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
+        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
+        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
+        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
+    )
+
+    msg = safe_wizard_edit(chat_id, msg_id, verified_text, reply_markup=inline_kb)
+    if hasattr(msg, 'message_id'):
+        user_sessions[uid]["last_msg"] = msg.message_id
+        user_sessions[uid]["is_resync"] = True
 
 @bot.callback_query_handler(func=lambda c: c.data == "run_gen")
 def run_gen(call):
     uid = call.from_user.id
+    chat_id = call.message.chat.id
+    msg_id = call.message.message_id
     
-    # Check if we are regenerating from an existing message
-    if call.message.text and ("SIGNAL DETECTED" in call.message.text or "SLOT JACKPOT READER" in call.message.text or "𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑" in call.message.text):
-        try: bot.delete_message(call.message.chat.id, call.message.message_id)
-        except: pass
-        msg = bot.send_message(call.message.chat.id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
-        message_id = msg.message_id
-    else:
-        try:
-            msg = bot.edit_message_text("⚡ <b>RE-INITIALIZING ALGORITHM...</b>", call.message.chat.id, call.message.message_id, parse_mode="HTML")
-            message_id = msg.message_id
-        except:
-            msg = bot.send_message(call.message.chat.id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
-            message_id = msg.message_id
-        
-    run_gen_logic(
-        call.message.chat.id, 
-        message_id, 
-        call.from_user, 
-        user_sessions[uid].get("casino", "UNKNOWN"), 
-        user_sessions[uid].get("game", "UNKNOWN"), 
-        user_sessions[uid].get("provider", "UNKNOWN")
+    try: bot.answer_callback_query(call.id, "🔄 Re-syncing RNG Data...")
+    except: pass
+    
+    user_sessions[uid]["is_resync"] = True
+    game = user_sessions.get(uid, {}).get("game", "Super Ace")
+    casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
+    provider = user_sessions.get(uid, {}).get("provider", "JILI")
+    
+    run_gen_logic(chat_id, msg_id, uid, casino, game, provider)
+
+@bot.callback_query_handler(func=lambda c: c.data == "back_to_home")
+def back_to_home_callback(call):
+    uid = call.from_user.id
+    chat_id = call.message.chat.id
+    msg_id = call.message.message_id
+    
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    
+    first_name = call.from_user.first_name if hasattr(call, 'from_user') and call.from_user else "VIP Player"
+    intro_text = get_intro_card_text(first_name)
+    kb = get_intro_keyboard()
+    
+    msg = safe_wizard_edit(chat_id, msg_id, intro_text, reply_markup=kb)
+    if hasattr(msg, 'message_id'):
+        user_sessions[uid]["last_msg"] = msg.message_id
+        user_sessions[uid]["is_resync"] = False
+
+@bot.callback_query_handler(func=lambda c: c.data == "howtouse_guide")
+def handle_how_to_use(call):
+    uid = call.from_user.id
+    chat_id = call.message.chat.id
+    msg_id = call.message.message_id
+    
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    
+    guide_text = f"""📈 <b>SYSTEM INTEGRATION & OPERATIONS GUIDE</b>
+━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣ <b>PERFORM LIVE RNG AUDIT</b>
+• Click <b>Start JACKPOT READER</b> on the main screen.
+• Select your Casino Platform and Provider.
+
+2️⃣ <b>PLATFORM SELECTION & LOGIN</b>
+• Log in to your casino account to pair session entropy.
+
+3️⃣ <b>DEPLOY PATTERN SEQUENCE</b>
+• Press <b>REVEAL INJECTION PATTERN</b> to view spin calibration.
+
+💬 <b>Official Channel:</b> {OFFICIAL_CHANNEL_URL}"""
+    
+    kb = types.InlineKeyboardMarkup(row_width=1)
+    kb.add(
+        types.InlineKeyboardButton("🚀 Start JACKPOT READER", callback_data="intro_proceed"),
+        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
     )
+    
+    safe_wizard_edit(chat_id, msg_id, guide_text, reply_markup=kb)
 
-
-# ================= TOP GAMES COMMAND =================
-top_games_cache = {}
-TOP_GAMES_CACHE_DURATION = 6 * 3600 # 6 hours
-
-def get_or_generate_top_games(matched_casino):
-    current_time = time.time()
+@bot.message_handler(func=lambda m: True)
+def handle_text_messages(message):
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    save_user(uid)
     
-    # Check cache
-    if matched_casino in top_games_cache:
-        cache_data = top_games_cache[matched_casino]
-        if current_time - cache_data["timestamp"] < TOP_GAMES_CACHE_DURATION:
-            return cache_data["games"]
-            
-    # Generate new top games
-    preferred_providers = ["PRAGMATIC", "JILI", "PG SOFT", "PG", "PGSOFT"]
-    
-    pragmatic_games = []
-    jili_games = []
-    pg_games = []
-    other_games = []
-    
-    casino_providers = PROVIDERS_DATA.get(matched_casino, {})
-    for provider, games in casino_providers.items():
-        prov_upper = provider.upper()
-        for g in games:
-            game_name = g.get("n", str(g)) if isinstance(g, dict) else str(g)
-            game_data = {"name": game_name, "provider": provider}
-            
-            if "PRAGMATIC" in prov_upper:
-                pragmatic_games.append(game_data)
-            elif "JILI" in prov_upper:
-                jili_games.append(game_data)
-            elif "PG" in prov_upper or "PGSOFT" in prov_upper:
-                pg_games.append(game_data)
-            else:
-                other_games.append(game_data)
-                
-    all_games = pragmatic_games + jili_games + pg_games + other_games
-    if not all_games:
-        return []
-        
-    num_games = min(10, len(all_games))
-    selected_games = []
-    
-    # We want a mix. Let's try to get up to 2 from pragmatic, 2 from jili, 2 from pg, rest from others
-    def pick_games(pool, count):
-        if not pool: return []
-        k = min(count, len(pool))
-        picked = random.sample(pool, k)
-        for p in picked: pool.remove(p)
-        return picked
-
-    selected_games.extend(pick_games(pragmatic_games, 2))
-    selected_games.extend(pick_games(jili_games, 2))
-    selected_games.extend(pick_games(pg_games, 2))
-    
-    # Fill remaining from anywhere
-    remaining_pool = pragmatic_games + jili_games + pg_games + other_games
-    needed = num_games - len(selected_games)
-    if needed > 0 and remaining_pool:
-        selected_games.extend(pick_games(remaining_pool, needed))
-        
-    random.shuffle(selected_games)
-    
-    games_with_rtp = []
-    for g in selected_games:
-        rtp = random.uniform(92.0, 99.9)
-        games_with_rtp.append({
-            "name": g["name"],
-            "provider": g["provider"],
-            "rtp": round(rtp, 1)
-        })
-        
-    top_games_cache[matched_casino] = {
-        "timestamp": current_time,
-        "games": games_with_rtp
-    }
-    return games_with_rtp
-
-@bot.message_handler(commands=["winrate"])
-def winrate_cmd(message):
+    # Delete typed user text message so chat history stays completely clean
     try:
-        kb = types.InlineKeyboardMarkup(row_width=1)
-        kb.add(
-            types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/slotpatternbot/winrate")
-        )
-        caption = (
-            "📊 <b>REAL-TIME SEED ACCURACY AUDIT</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "I-click ang button sa ibaba upang masuri ang live RNG metrics at win rate analysis:"
-        )
-        send_menu_bubble(message.chat.id, caption, reply_markup=kb, photo=None)
-    except Exception as e:
-        print(f"Error in winrate_cmd: {e}")
-
-@bot.message_handler(commands=["howtouse"])
-def howtouse_cmd(message):
-    try:
-        kb = types.InlineKeyboardMarkup(row_width=1)
-        kb.add(
-            types.InlineKeyboardButton("❓ How to use the system?", callback_data="how_to_use")
-        )
-        caption = (
-            "❓ <b>SYSTEM OPERATION GUIDE</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "I-click ang button sa ibaba upang mabasa ang kumpletong gabay sa paggamit ng system:"
-        )
-        send_menu_bubble(message.chat.id, caption, reply_markup=kb, photo=None)
-    except Exception as e:
-        print(f"Error in howtouse_cmd: {e}")
-
-@bot.message_handler(commands=["topgames"])
-def send_topgames_casinos_menu(message):
-    try:
-        kb = types.InlineKeyboardMarkup(row_width=2)
-        buttons = []
-        for casino in CASINO_DATA.keys():
-            buttons.append(types.InlineKeyboardButton(text=f"🎰 {casino}", callback_data=f"tgcas:{casino}"))
-        kb.add(*buttons)
-        send_menu_bubble(message.chat.id, "🔥 <b>TOP 10 GAMES MENU</b> 🔥\n\nPumili ng Casino platform upang makita ang Top 10 recommended winning games:", parse_mode="HTML", reply_markup=kb, photo=None)
-    except Exception as e:
-        print(f"Error in topgames menu: {e}")
-
-@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("tgcas:"))
-def handle_topgames_casino_select(call):
-    try:
-        matched_casino = call.data.split("tgcas:")[1]
-        cached_games = get_or_generate_top_games(matched_casino)
-        if not cached_games:
-            bot.answer_callback_query(call.id, "❌ No games available.", show_alert=True)
-            return
-            
-        reply_text = f"🔥 <b>TOP 10 GAMES FOR {matched_casino}</b> 🔥\n\n"
-        for i, game in enumerate(cached_games, 1):
-            reply_text += f"{i}.) <b>{game['name']}</b>\n<blockquote>📈 {game['rtp']}% RTP</blockquote>\n<i>{game['provider']}</i>\n\n"
-        reply_text += f"⏳ <i>Valid for next 6 hours.</i>"
+        bot.delete_message(chat_id, message.message_id)
+    except Exception:
+        pass
         
-        kb = types.InlineKeyboardMarkup(row_width=1)
-        kb.add(types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform"))
-
-        send_menu_bubble(call.message.chat.id, reply_text, reply_markup=kb, photo=None)
-        bot.answer_callback_query(call.id)
-    except Exception as e:
-        print(f"Error in topgames callback: {e}")
-
-@bot.message_handler(regexp=r"^/topgames_(.+)$")
-def handle_topgames(message):
-    try:
-        command = message.text.split()[0]
-        casino_key = command.replace("/topgames_", "").upper()
-        
-        matched_casino = None
-        for c in CASINO_DATA.keys():
-            if c.replace(" ", "").upper() == casino_key or c.replace(" ", "_").upper() == casino_key:
-                matched_casino = c
-                break
-                
-        if not matched_casino:
-            bot.send_message(message.chat.id, f"❌ <b>Casino not found.</b>", parse_mode="HTML")
-            return
-            
-        cached_games = get_or_generate_top_games(matched_casino)
-        if not cached_games:
-            bot.send_message(message.chat.id, f"❌ <b>No games available.</b>", parse_mode="HTML")
-            return
-            
-        reply_text = f"🔥 <b>TOP 10 GAMES FOR {matched_casino}</b> 🔥\n\n"
-        for i, game in enumerate(cached_games, 1):
-            reply_text += f"{i}.) <b>{game['name']}</b>\n<blockquote>📈 {game['rtp']}% RTP</blockquote>\n<i>{game['provider']}</i>\n\n"
-        reply_text += f"⏳ <i>Valid for next 6 hours.</i>"
-        
-        kb = types.InlineKeyboardMarkup(row_width=1)
-        kb.add(types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform"))
-
-        send_menu_bubble(message.chat.id, reply_text, reply_markup=kb, photo=None)
-        
-    except Exception as e:
-        print(f"Error in topgames: {e}")
-
-@bot.message_handler(commands=["help"])
-def help_cmd(message):
-    try: admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-    except: admin_id_val = 0
-
-    help_text = "📖 <b>AVAILABLE COMMANDS</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
-    help_text += "🚀 /start - Open Signal Dashboard\n"
-    help_text += "🎮 /topgames - Select Casino & View Top 10 Games\n"
-    help_text += "📊 /winrate - Check Live RNG Analysis\n"
-    help_text += "❓ /howtouse - System operations guide"
-        
-    bot.send_message(message.chat.id, help_text, parse_mode="HTML")
-
-    if message.from_user.id == admin_id_val:
-        admin_text = "🛠 <b>ADMIN PANEL HELP</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
-        admin_text += "📊 /stats - Show user statistics\n"
-        admin_text += "📢 /broadcast - Broadcast msg to all users\n"
-        admin_text += "📂 /backup_users - Export user database\n"
-        admin_text += "📥 /restore_users - (Reply to file) Restore database\n"
-        admin_text += "🎮 /top5 & /top10 - Game recommendations"
-        bot.send_message(message.chat.id, admin_text, parse_mode="HTML")
+    start_cmd(message)
 
 
 
@@ -2385,6 +1670,10 @@ def agilaclub_cmd(message):
         if "AGILA" in c.upper().replace(" ", ""):
             selected_casino = c
             break
+    if selected_casino in DISABLED_CASINOS:
+        active_casinos = [c for c in CASINO_DATA.keys() if c not in DISABLED_CASINOS]
+        if active_casinos:
+            selected_casino = active_casinos[0]
             
     user_sessions[uid]["casino"] = selected_casino
     
@@ -2633,6 +1922,14 @@ def choose_casino_platform(target):
 def confirm_casino_selection(call):
     uid = call.from_user.id
     selected_casino = call.data.replace("set_casino_", "")
+
+    if selected_casino in DISABLED_CASINOS:
+        try:
+            bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
+        except:
+            pass
+        return
+
     user_sessions[uid]["casino"] = selected_casino
 
     reg_link = CASINO_DATA.get(selected_casino, "https://google.com")
@@ -3035,6 +2332,12 @@ def send_topgames_casinos_menu(message):
 def handle_topgames_casino_select(call):
     try:
         matched_casino = call.data.split("tgcas:")[1]
+        if matched_casino in DISABLED_CASINOS:
+            try:
+                bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
+            except: pass
+            return
+
         cached_games = get_or_generate_top_games(matched_casino)
         if not cached_games:
             bot.answer_callback_query(call.id, "❌ No games available.", show_alert=True)
@@ -3064,6 +2367,10 @@ def handle_topgames(message):
                 
         if not matched_casino:
             bot.send_message(message.chat.id, f"❌ <b>Casino not found.</b>", parse_mode="HTML")
+            return
+
+        if matched_casino in DISABLED_CASINOS:
+            bot.send_message(message.chat.id, "Casino Platform you selected is not working right now, please select another casino platform.", parse_mode="HTML")
             return
             
         cached_games = get_or_generate_top_games(matched_casino)
@@ -3930,6 +3237,12 @@ def handle_game_casino_selection(call):
     if len(parts) >= 4:
         casino_name = parts[2]
         game_name = parts[3]
+        if casino_name in DISABLED_CASINOS:
+            try:
+                bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
+            except: pass
+            return
+
         user_sessions[uid]["casino"] = casino_name
         user_sessions[uid]["game"] = game_name
         user_sessions[uid]["is_logged_in"] = True
