@@ -442,461 +442,6 @@ SIGNALS = [
     "🗺️\n8 Quick Spins -> 8 Normal Spins -> 8 Turbo Spins -> 8 Normal Spins"
 ]
 
-def get_intro_card_text(first_name):
-    safe_name = html.escape(str(first_name).strip()) if first_name else "VIP Player"
-    return f"""⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️
-━━━━━━━━━━━━━━━━━━━━━━
-Mabuhay, <b>{safe_name}</b>!
-<code>[SYSTEM: ONLINE] · [CORE: VIP-v5.8] · [LATENCY: 12ms]</code>
-
-Welcome to the high-frequency <b>RNG Pattern Recognition & Seed Audit Architecture</b>. Ang aming deep-learning engine ay sumusubaybay sa real-time casino seeds, platform RTP curves, at volatility shifts.
-
-• 📊 <b>Live RNG Seed Audit:</b> <code>Real-time entropy accuracy</code>
-• 🧬 <b>Quantum Seed Decoder:</b> <code>Active session sync</code>
-• 🎯 <b>Dynamic Pattern Injection:</b> <code>99.2% precision lock</code>"""
-
-def get_intro_keyboard():
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        types.InlineKeyboardButton("🚀 Start JACKPOT READER", callback_data="intro_proceed"),
-        types.InlineKeyboardButton("❓ How to use the system?", callback_data="howtouse_guide")
-    )
-    return kb
-
-def safe_wizard_edit(chat_id, message_id, text, reply_markup=None, parse_mode="HTML"):
-    """
-    Edits an existing message in-place for single-message wizard navigation.
-    Never sends new messages or deletes during inline button navigation.
-    """
-    if message_id:
-        try:
-            return bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=reply_markup, parse_mode=parse_mode, disable_web_page_preview=True)
-        except Exception:
-            pass
-    msg = bot.send_message(chat_id, text, reply_markup=reply_markup, parse_mode=parse_mode, disable_web_page_preview=True)
-    return msg
-
-@bot.message_handler(commands=['start'])
-def start_cmd(message):
-    uid = message.from_user.id
-    chat_id = message.chat.id
-    save_user(uid)
-    
-    # Delete user's typed /start message to keep chat history clean
-    try:
-        bot.delete_message(chat_id, message.message_id)
-    except Exception:
-        pass
-        
-    # Delete old bot message if present
-    if uid in user_sessions and user_sessions[uid].get("last_msg"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_msg"])
-        except Exception:
-            pass
-
-    first_name = message.from_user.first_name if hasattr(message, 'from_user') and message.from_user else "VIP Player"
-    intro_text = get_intro_card_text(first_name)
-    kb = get_intro_keyboard()
-
-    msg = bot.send_message(chat_id, intro_text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
-    
-    user_sessions[uid] = {
-        "last_msg": msg.message_id,
-        "last_gen_time": 0,
-        "game": None,
-        "provider": None,
-        "encoding": False,
-        "casino": None,
-        "is_logged_in": True,
-        "is_resync": False
-    }
-
-@bot.callback_query_handler(func=lambda c: c.data in ["intro_proceed", "change_platform"])
-def choose_casino_platform(target):
-    if hasattr(target, "message"):
-        chat_id = target.message.chat.id
-        uid = target.from_user.id
-        msg_id = target.message.message_id
-        call_id = getattr(target, "id", None)
-    elif hasattr(target, "chat"):
-        chat_id = target.chat.id
-        uid = target.from_user.id
-        msg_id = user_sessions.get(uid, {}).get("last_msg")
-        call_id = None
-    else:
-        return
-
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": msg_id, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_resync": False}
-    else:
-        user_sessions[uid]["is_resync"] = False
-
-    if call_id:
-        try: bot.answer_callback_query(call_id)
-        except: pass
-
-    kb = types.InlineKeyboardMarkup()
-    casinos_list = list(CASINO_DATA.keys())
-    
-    row = []
-    for casino in casinos_list:
-        btn = types.InlineKeyboardButton(f"🏛 {casino}", callback_data=f"set_casino_{casino}")
-        row.append(btn)
-        if len(row) == 2:
-            kb.row(*row)
-            row = []
-    if row:
-        kb.row(*row)
-        
-    kb.add(types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home"))
-
-    text = f"""🏗 <b>SELECT PLATFORM DATABASE</b>
-━━━━━━━━━━━━━━━━━━━━━━
-Choose your Casino Platform to load the correct RNG configuration:"""
-
-    msg = safe_wizard_edit(chat_id, msg_id, text, reply_markup=kb)
-    if hasattr(msg, 'message_id'):
-        user_sessions[uid]["last_msg"] = msg.message_id
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith("set_casino_"))
-def confirm_casino_selection(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    selected_casino = call.data.replace("set_casino_", "")
-    
-    if selected_casino in DISABLED_CASINOS:
-        try:
-            bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
-        except:
-            pass
-        return
-
-    user_sessions[uid]["casino"] = selected_casino
-    
-    reg_link = CASINO_DATA.get(selected_casino, "https://google.com")
-    if not reg_link.startswith("http://") and not reg_link.startswith("https://"):
-        reg_link = "https://" + reg_link
-
-    try: bot.answer_callback_query(call.id)
-    except: pass
-
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        types.InlineKeyboardButton("🔐 LOG IN TO START", url=reg_link),
-        types.InlineKeyboardButton("🚀 PROCEED TO SYSTEM", callback_data="open_menu"),
-        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
-    )
-
-    welcome_text = f"""🏛 <b>PLATFORM SELECTED: {selected_casino}</b>
-━━━━━━━━━━━━━━━━━━━━━━
-To initialize the <b>RNG Synchronization Protocol</b>, please follow these steps:
-
-1️⃣ Click the <b>Log in to Start</b> button below to open the secure portal.
-2️⃣ Log in or Register your account on the official platform.
-3️⃣ Once logged in, return to this bot and click <b>PROCEED TO SYSTEM</b>.
-
-⚠️ <b>SYSTEM NOTE:</b> The AI algorithm only synchronizes with active sessions detected through our encrypted link."""
-
-    msg = safe_wizard_edit(chat_id, msg_id, welcome_text, reply_markup=kb)
-    if hasattr(msg, 'message_id'):
-        user_sessions[uid]["last_msg"] = msg.message_id
-
-@bot.callback_query_handler(func=lambda c: c.data in ["open_menu", "back_to_providers"])
-def trigger_menu(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    
-    try: bot.answer_callback_query(call.id)
-    except: pass
-    
-    selected_casino = user_sessions.get(uid, {}).get("casino") or list(CASINO_DATA.keys())[0]
-    user_sessions[uid]["casino"] = selected_casino
-    
-    prov_dict = PROVIDERS_DATA.get(selected_casino, {})
-    if not prov_dict and "DEFAULT_PROVIDERS_DATA" in globals():
-        prov_dict = DEFAULT_PROVIDERS_DATA
-    providers_list = list(prov_dict.keys()) if prov_dict else ["JILI", "PRAGMATIC PLAY", "PG SOFT", "NOLIMIT CITY", "FA CHAI", "JDB GAMING", "PLAY'N GO"]
-    
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add(types.KeyboardButton("🔙 BACK TO CASINOS"))
-    prov_btns = [types.KeyboardButton(p) for p in providers_list]
-    for i in range(0, len(prov_btns), 2):
-        kb.row(*prov_btns[i:i+2])
-    
-    text = f"""🏛 <b>SELECTED PLATFORM: {selected_casino}</b>
-━━━━━━━━━━━━━━━━━━━━━━
-Pumili ng Game Provider sa keyboard sa ibaba upang ma-load ang tamang slot database:"""
-    
-    try: bot.delete_message(chat_id, msg_id)
-    except: pass
-    msg = bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
-    if hasattr(msg, 'message_id'):
-        user_sessions[uid]["last_msg"] = msg.message_id
-
-def display_provider_games(chat_id, uid, prov_name):
-    selected_casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
-    user_sessions[uid]["provider"] = prov_name
-    
-    raw_games = []
-    if selected_casino in PROVIDERS_DATA and prov_name in PROVIDERS_DATA[selected_casino]:
-        raw_games = PROVIDERS_DATA[selected_casino][prov_name]
-    elif "DEFAULT_PROVIDERS_DATA" in globals() and prov_name in DEFAULT_PROVIDERS_DATA:
-        raw_games = DEFAULT_PROVIDERS_DATA[prov_name]
-    else:
-        raw_games = [{"n": "Super Ace", "bb": 0}, {"n": "Fortune Gems", "bb": 0}]
-
-    display_names = [g["n"] if isinstance(g, dict) else str(g) for g in raw_games]
-
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add(types.KeyboardButton("🔙 BACK TO PROVIDERS"), types.KeyboardButton("🔙 BACK TO CASINOS"))
-    game_btns = [types.KeyboardButton(n) for n in display_names]
-    for i in range(0, len(game_btns), 2):
-        kb.row(*game_btns[i:i+2])
-
-    text = f"""🎮 <b>PLATFORM: {selected_casino} | PROVIDER: {prov_name}</b>
-━━━━━━━━━━━━━━━━━━━━━━
-Showing {len(display_names)} Games Available. Pumili ng Laro sa keyboard sa ibaba para simulan ang real-time RNG audit:"""
-
-    msg = bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
-    if hasattr(msg, 'message_id'):
-        user_sessions[uid]["last_msg"] = msg.message_id
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith("select_prov_"))
-def handle_provider_select_inline(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    prov_name = call.data.replace("select_prov_", "")
-    try: bot.answer_callback_query(call.id)
-    except: pass
-    display_provider_games(chat_id, uid, prov_name)
-
-@bot.callback_query_handler(func=lambda c: c.data == "change_game")
-def change_game_callback(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    prov_name = user_sessions.get(uid, {}).get("provider", "JILI")
-    try: bot.answer_callback_query(call.id)
-    except: pass
-    display_provider_games(chat_id, uid, prov_name)
-
-def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
-    uid = user_obj.id if hasattr(user_obj, 'id') else user_obj
-    if uid not in user_sessions:
-        user_sessions[uid] = {}
-        
-    user_sessions[uid]["last_gen_time"] = time.time()
-    
-    stages = [
-        {
-            "title": "⚡ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>UPLINK</code>",
-            "log": "[UPLINK] >> CONNECTING [TLS v1.3]",
-            "detail": "[CIPHER] >> TLS_AES_256_GCM_SHA384",
-            "percent": 15,
-            "ping": "12ms PING"
-        },
-        {
-            "title": "🧬 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>SEED SYNC</code>",
-            "log": f"[SERVER] >> {html.escape(str(casino)).upper()} RNG FOUND",
-            "detail": f"[SEED]   >> 0x{str(uuid.uuid4())[:8].upper()}... [DECODED]",
-            "percent": 48,
-            "ping": "ANALYZING"
-        },
-        {
-            "title": "🛰 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>NEURAL FIT</code>",
-            "log": f"[TARGET] >> {html.escape(str(game)).upper()} ({html.escape(str(provider))})",
-            "detail": "[CYCLES] >> HIT FREQUENCY CALIBRATED",
-            "percent": 82,
-            "ping": "COMPUTING"
-        },
-        {
-            "title": "✅ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>LOCKED</code>",
-            "log": "[STATUS] >> HIGH VOLATILITY INJECTION READY",
-            "detail": "[STREAM] >> DEPLOYING SIGNAL PATTERN",
-            "percent": 100,
-            "ping": "READY"
-        }
-    ]
-
-    for stage in stages:
-        meter = render_meter(stage["percent"], 10)
-        status_text = f"""{stage['title']}
-━━━━━━━━━━━━━━━━━━━━━━
-<code>{stage['log']}</code>
-<code>{stage['detail']}</code>
-<code>[{meter}] {stage['percent']}% · {stage['ping']}</code>"""
-        msg = safe_wizard_edit(chat_id, message_id, status_text)
-        if hasattr(msg, 'message_id'):
-            message_id = msg.message_id
-            user_sessions[uid]["last_msg"] = message_id
-        time.sleep(0.75)
-
-    ph_now = datetime.utcnow() + timedelta(hours=8)
-    v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
-    fake_id = str(uuid.uuid4())[:8].upper()
-    
-    valid_signals = SIGNALS if 'SIGNALS' in globals() and SIGNALS else [{"text": "🟢\n10 Normal Spins -> 30 Turbo Spins"}]
-    selected_sig = random.choice(valid_signals)
-    pattern_text = selected_sig["text"] if isinstance(selected_sig, dict) else str(selected_sig)
-    
-    prob_val = random.uniform(96.5, 99.4)
-    user_sessions[uid]["game"] = game
-    user_sessions[uid]["casino"] = casino
-    user_sessions[uid]["provider"] = provider
-    user_sessions[uid]["fake_id"] = fake_id
-    user_sessions[uid]["v_until"] = v_until
-    user_sessions[uid]["prob"] = prob_val
-    user_sessions[uid]["pattern"] = pattern_text
-
-    is_resync = user_sessions[uid].get("is_resync", False)
-    
-    inline_kb = types.InlineKeyboardMarkup(row_width=1)
-    if not is_resync:
-        inline_kb.add(types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"))
-    
-    inline_kb.add(
-        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
-        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
-        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
-        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
-    )
-
-    if is_resync:
-        result_text = format_cyber_box(game, casino, provider, prob_val, fake_id, v_until, direct_pattern=pattern_text)
-    else:
-        result_text = format_cyber_box(game, casino, provider, prob_val, fake_id, v_until)
-
-    msg = safe_wizard_edit(chat_id, message_id, result_text, reply_markup=inline_kb)
-    if hasattr(msg, 'message_id'):
-        user_sessions[uid]["last_msg"] = msg.message_id
-
-@bot.callback_query_handler(func=lambda c: c.data == "show_pattern")
-def show_pattern_callback(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    
-    try: bot.answer_callback_query(call.id)
-    except: pass
-    
-    game = user_sessions.get(uid, {}).get("game", "Super Ace")
-    casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
-    pattern = user_sessions.get(uid, {}).get("pattern", "🟢\n10 Normal Spins -> 30 Turbo Spins")
-    
-    ph_now = datetime.utcnow() + timedelta(hours=8)
-    gen_date = ph_now.strftime("%B %d, %Y")
-    gen_time = ph_now.strftime("%I:%M %p PHT")
-    
-    pattern_box, badge_emoji = format_pattern_code(pattern)
-    emoji_header = f"{badge_emoji}\n" if badge_emoji else ""
-    
-    verified_text = f"""⚜️ <b>INJECTION PATTERN VERIFIED</b> ⚜️
-━━━━━━━━━━━━━━━━━━━━━━
-Generated: <b>{gen_date}</b> at <b>{gen_time}</b>
-🎮 Game: <b>{html.escape(str(game))}</b>
-🏛 Platform: <b>{html.escape(str(casino))}</b>
-
-🎰 <b>PATTERN SPIN:</b>
-{emoji_header}{pattern_box}
-
-<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang pattern sequence bago matapos ang expiration window.</blockquote>"""
-    
-    inline_kb = types.InlineKeyboardMarkup(row_width=1)
-    inline_kb.add(
-        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
-        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
-        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
-        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
-    )
-
-    msg = safe_wizard_edit(chat_id, msg_id, verified_text, reply_markup=inline_kb)
-    if hasattr(msg, 'message_id'):
-        user_sessions[uid]["last_msg"] = msg.message_id
-        user_sessions[uid]["is_resync"] = True
-
-@bot.callback_query_handler(func=lambda c: c.data == "run_gen")
-def run_gen(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    
-    try: bot.answer_callback_query(call.id, "🔄 Re-syncing RNG Data...")
-    except: pass
-    
-    user_sessions[uid]["is_resync"] = True
-    game = user_sessions.get(uid, {}).get("game", "Super Ace")
-    casino = user_sessions.get(uid, {}).get("casino", "AGILA CLUB")
-    provider = user_sessions.get(uid, {}).get("provider", "JILI")
-    
-    run_gen_logic(chat_id, msg_id, uid, casino, game, provider)
-
-@bot.callback_query_handler(func=lambda c: c.data == "back_to_home")
-def back_to_home_callback(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    
-    try: bot.answer_callback_query(call.id)
-    except: pass
-    
-    first_name = call.from_user.first_name if hasattr(call, 'from_user') and call.from_user else "VIP Player"
-    intro_text = get_intro_card_text(first_name)
-    kb = get_intro_keyboard()
-    
-    msg = safe_wizard_edit(chat_id, msg_id, intro_text, reply_markup=kb)
-    if hasattr(msg, 'message_id'):
-        user_sessions[uid]["last_msg"] = msg.message_id
-        user_sessions[uid]["is_resync"] = False
-
-@bot.callback_query_handler(func=lambda c: c.data == "howtouse_guide")
-def handle_how_to_use(call):
-    uid = call.from_user.id
-    chat_id = call.message.chat.id
-    msg_id = call.message.message_id
-    
-    try: bot.answer_callback_query(call.id)
-    except: pass
-    
-    guide_text = f"""📈 <b>SYSTEM INTEGRATION & OPERATIONS GUIDE</b>
-━━━━━━━━━━━━━━━━━━━━━━
-
-1️⃣ <b>PERFORM LIVE RNG AUDIT</b>
-• Click <b>Start JACKPOT READER</b> on the main screen.
-• Select your Casino Platform and Provider.
-
-2️⃣ <b>PLATFORM SELECTION & LOGIN</b>
-• Log in to your casino account to pair session entropy.
-
-3️⃣ <b>DEPLOY PATTERN SEQUENCE</b>
-• Press <b>REVEAL INJECTION PATTERN</b> to view spin calibration.
-
-💬 <b>Official Channel:</b> {OFFICIAL_CHANNEL_URL}"""
-    
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        types.InlineKeyboardButton("🚀 Start JACKPOT READER", callback_data="intro_proceed"),
-        types.InlineKeyboardButton("🏛 BACK TO CASINOS", callback_data="intro_proceed")
-    )
-    
-    safe_wizard_edit(chat_id, msg_id, guide_text, reply_markup=kb)
-
-@bot.message_handler(func=lambda m: True)
-def handle_text_messages(message):
-    uid = message.from_user.id
-    chat_id = message.chat.id
-    save_user(uid)
-    
-    # Delete typed user text message so chat history stays completely clean
-    try:
-        bot.delete_message(chat_id, message.message_id)
-    except Exception:
-        pass
-        
-    start_cmd(message)
-
-
 
 # ================= OVERRIDDEN LOGIC FOR MULTI-CASINO PROVIDERS =================
 def render_meter(percent, length=10):
@@ -988,358 +533,23 @@ def teleclaw_thinking(chat_id, action="Initializing Uplink", duration=2, final_t
     except:
         pass
 
+DISABLED_CASINO_MSG = "Casino Platform you selected is not working right now, please select another casino platform."
 
-user_sessions = {}
-user_ids = set() 
-USER_IDS_FILE = "users.txt"
+def ensure_session(uid, default_logged_in=False):
+    if uid not in user_sessions:
+        user_sessions[uid] = {
+            "last_msg": None,
+            "last_gen_time": 0,
+            "game": None,
+            "provider": None,
+            "encoding": False,
+            "casino": None,
+            "is_logged_in": default_logged_in,
+            "is_resync": False
+        }
+    return user_sessions[uid]
 
-def load_users():
-    global user_ids
-    if os.path.exists(USER_IDS_FILE):
-        try:
-            with open(USER_IDS_FILE, "r") as f:
-                ids = f.read().splitlines()
-                user_ids = set(int(uid) for uid in ids if uid.strip().isdigit())
-        except: pass
-
-def save_user(uid):
-    if uid not in user_ids:
-        user_ids.add(uid)
-        try:
-            with open(USER_IDS_FILE, "a") as f:
-                f.write(f"{uid}\n")
-        except: pass
-
-load_users()
-
-# ================= DATA: EXPANDED GAME LIST =================
-DEFAULT_PROVIDERS_DATA = {
-        "PRAGMATIC PLAY": [
-            {"n": "GATES OF OLYMPUS", "bb": 0}, {"n": "GATES OF OLYMPUS 1000", "bb": 1}, {"n": "SWEET BONANZA", "bb": 1}, {"n": "SWEET BONANZA 1000", "bb": 1}, {"n": "SUGAR RUSH", "bb": 0}, {"n": "SUGAR RUSH 1000", "bb": 1},
-            {"n": "STARLIGHT PRINCESS", "bb": 1}, {"n": "STARLIGHT PRINCESS 1000", "bb": 1}, {"n": "THE DOG HOUSE", "bb": 0}, {"n": "THE DOG HOUSE MEGAWAYS", "bb": 1}, {"n": "THE DOG HOUSE MULTIHOLD", "bb": 0}, {"n": "FRUIT PARTY", "bb": 0},
-            {"n": "FRUIT PARTY 2", "bb": 0}, {"n": "WOLF GOLD", "bb": 0}, {"n": "MUSTANG GOLD", "bb": 0}, {"n": "GREAT RHINO MEGAWAYS", "bb": 1}, {"n": "CHILLI HEAT", "bb": 0}, {"n": "AZTEC GEMS", "bb": 0},
-            {"n": "AZTEC GEMS DELUXE", "bb": 0}, {"n": "WILD WEST GOLD", "bb": 0}, {"n": "MADAME DESTINY MEGAWAYS", "bb": 1}, {"n": "THE HAND OF MIDAS", "bb": 0}, {"n": "POWER OF THOR MEGAWAYS", "bb": 1}, {"n": "BUFFALO KING", "bb": 0},
-            {"n": "BUFFALO KING MEGAWAYS", "bb": 1}, {"n": "JUICY FRUITS", "bb": 0}, {"n": "GEMS BONANZA", "bb": 1}, {"n": "RISE OF GIZA", "bb": 0}, {"n": "CHICKEN DROP", "bb": 0}, {"n": "BOOK OF FALLEN", "bb": 0},
-            {"n": "MAGICIAN'S SECRETS", "bb": 0}, {"n": "CRYSTAL CAVERNS", "bb": 0}, {"n": "SMUGGLERS COVE", "bb": 0}, {"n": "SANTA'S WONDERLAND", "bb": 0}, {"n": "STAR PIRATES CODE", "bb": 0}, {"n": "MYSTIC CHIEF", "bb": 0},
-            {"n": "PIGGY BANK BILLS", "bb": 0}, {"n": "TREASURE WILD", "bb": 0}, {"n": "GATES OF GATOT KACA", "bb": 0}, {"n": "MOCKTAIL NIGHTS", "bb": 0}, {"n": "SWORD OF ARES", "bb": 0}, {"n": "SHIELD OF SPARTA", "bb": 0},
-            {"n": "TOWERING FORTUNES", "bb": 0}, {"n": "RELEASE THE KRAKEN 2", "bb": 0}, {"n": "SPIN & SCORE", "bb": 0}, {"n": "OLD GOLD MINER", "bb": 0}, {"n": "CANDY STARS", "bb": 0}, {"n": "CLEOCATRA", "bb": 0},
-            {"n": "WILD BEACH PARTY", "bb": 0}, {"n": "QUEEN OF GODS", "bb": 0}, {"n": "ZOMBIE CARNIVAL", "bb": 0}, {"n": "FORTUNE OF GIZA", "bb": 0}, {"n": "SPIRIT OF ADVENTURE", "bb": 0}, {"n": "CLOVER GOLD", "bb": 0},
-            {"n": "EYE OF CLEOPATRA", "bb": 0}, {"n": "NORTH GUARDIANS", "bb": 0}, {"n": "DRILL THAT GOLD", "bb": 0}, {"n": "BARN FESTIVAL", "bb": 0}, {"n": "RAINBOW GOLD", "bb": 0}, {"n": "TIC TAC TAKE", "bb": 0},
-            {"n": "WILD DEPTHS", "bb": 0}, {"n": "GOLD PARTY", "bb": 0}, {"n": "ROCK VEGAS", "bb": 0}, {"n": "EMPEROR CAISHEN", "bb": 0}, {"n": "LUCKY LIGHTNING", "bb": 0}, {"n": "DRAGON HOT HOLD & SPIN", "bb": 0},
-            {"n": "HEART OF RIO", "bb": 0}, {"n": "PANDA'S FORTUNE 2", "bb": 0}, {"n": "5 LIONS MEGAWAYS", "bb": 1}, {"n": "BOOK OF VIKINGS", "bb": 0}, {"n": "LUCKY GRACE AND CHARM", "bb": 0}, {"n": "RISE OF SAMURAI MEGAWAYS", "bb": 1},
-            {"n": "CHICKEN CHASE", "bb": 0}, {"n": "WILD WEST DUELS", "bb": 0}, {"n": "MYSTERY OF THE ORIENT", "bb": 0}, {"n": "PEAK POWER", "bb": 0}, {"n": "CLUB TROPICANA", "bb": 0}, {"n": "THE KNIGHT KING", "bb": 0},
-            {"n": "GODS OF GIZA", "bb": 0}, {"n": "KINGDOM OF THE DEAD", "bb": 0}, {"n": "EXCALIBUR UNLEASHED", "bb": 0}, {"n": "ZEUS VS HADES", "bb": 0}, {"n": "JEWEL RUSH", "bb": 0}, {"n": "STICKY BEES", "bb": 0},
-            {"n": "PIRATES PUB", "bb": 0}, {"n": "FLOATING DRAGON", "bb": 0}, {"n": "FLOATING DRAGON MEGAWAYS", "bb": 1}, {"n": "TRIPLE TIGERS", "bb": 0}, {"n": "888 DRAGONS", "bb": 0}, {"n": "MONKEY MADNESS", "bb": 0},
-            {"n": "MASTER JOKER", "bb": 0}, {"n": "FIRE STRIKE", "bb": 0}, {"n": "FIRE STRIKE 2", "bb": 0}, {"n": "DIAMOND STRIKE", "bb": 0}, {"n": "EXTRA JUICY", "bb": 0}, {"n": "EXTRA JUICY MEGAWAYS", "bb": 1},
-            {"n": "WILD WILD RICHES", "bb": 0}, {"n": "WILD WILD RICHES MEGAWAYS", "bb": 1}, {"n": "PYRAMID KING", "bb": 0}, {"n": "HOT TO BURN", "bb": 0}, {"n": "HOT TO BURN EXTREME", "bb": 0}, {"n": "ULTRA HOLD AND SPIN", "bb": 0},
-            {"n": "LUCKY, GRACE & CHARM", "bb": 0}, {"n": "EMPTY THE BANK", "bb": 0}, {"n": "BOOK OF KING ARTHUR", "bb": 0}, {"n": "7 PIGGIES", "bb": 0}, {"n": "888 GOLD", "bb": 0}, {"n": "ALADDIN AND THE SORCERER", "bb": 0},
-            {"n": "AMAZING MONEY MACHINE", "bb": 0}, {"n": "ANCIENT EGYPT CLASSIC", "bb": 0}, {"n": "BEOWULF", "bb": 0}, {"n": "BOOK OF TUT", "bb": 0}, {"n": "BRONCO SPIRIT", "bb": 0}, {"n": "CASH BONANZA", "bb": 1},
-            {"n": "CASH ELEVATOR", "bb": 0}, {"n": "CONGO CASH", "bb": 0}, {"n": "COWBOYS GOLD", "bb": 0}, {"n": "CURSE OF THE WEREWOLF", "bb": 0}, {"n": "DA VINCI'S TREASURE", "bb": 0}, {"n": "DANCE PARTY", "bb": 0},
-            {"n": "DAY OF DEAD", "bb": 0}, {"n": "DIAMOND ARE FOREVER", "bb": 0}, {"n": "DRAGON KINGDOM", "bb": 0}, {"n": "DRAGON TIGER", "bb": 0}, {"n": "DWARF MINE", "bb": 0}, {"n": "EMERALD KING", "bb": 0},
-            {"n": "EMERALD KING JACKPOT", "bb": 0}, {"n": "FAIRYTALE FORTUNE", "bb": 0}, {"n": "FORBIDDEN THRONE", "bb": 0}, {"n": "GATES OF VALHALLA", "bb": 0}, {"n": "GLOOMY GRAVEYARD", "bb": 0}, {"n": "GOLD RUSH", "bb": 0},
-            {"n": "GOLD TRAIN", "bb": 0}, {"n": "GOLDEN BEAUTY", "bb": 0}, {"n": "GOLDEN OX", "bb": 0}, {"n": "GREAT RHINO", "bb": 0}, {"n": "GREAT RHINO DELUXE", "bb": 0}, {"n": "HERCULES AND PEGASUS", "bb": 0},
-            {"n": "HOT SAFARI", "bb": 0}, {"n": "JADE BUTTERFLY", "bb": 0}, {"n": "JOKER KING", "bb": 0}, {"n": "JOKER'S JEWELS", "bb": 0}, {"n": "JOURNEY TO THE WEST", "bb": 0}, {"n": "JUNGLE GORILLA", "bb": 0},
-            {"n": "KNIGHT HOT SPOTZ", "bb": 0}, {"n": "LEPRECHAUN CAROL", "bb": 0}, {"n": "LEPRECHAUN SONG", "bb": 0}, {"n": "LUCKY DRAGONS", "bb": 0}, {"n": "LUCKY NEW YEAR", "bb": 0}, {"n": "MASTER CHEN'S FORTUNE", "bb": 0},
-            {"n": "MEDUSA STRIKE", "bb": 0}, {"n": "MONEY MOUSE", "bb": 0}, {"n": "MONKEY WARRIOR", "bb": 0}, {"n": "MOON PRINCESS", "bb": 1}, {"n": "MYSTERIOUS", "bb": 0}, {"n": "MYSTERIOUS EGYPT", "bb": 0},
-            {"n": "PANDA'S FORTUNE", "bb": 0}, {"n": "PEKING LUCK", "bb": 0}, {"n": "PHOENIX FORGE", "bb": 0}, {"n": "PIXIE WINGS", "bb": 0}, {"n": "QUEEN OF ATLANTIS", "bb": 0}, {"n": "QUEEN OF GOLD", "bb": 0},
-            {"n": "RELEASE THE KRAKEN", "bb": 0}, {"n": "RETRO REELS", "bb": 0}, {"n": "SANTA", "bb": 0}, {"n": "SCARAB QUEEN", "bb": 0}, {"n": "SEVEN PIGGIES", "bb": 0}, {"n": "STAR BOUNTY", "bb": 0},
-            {"n": "STREET RACER", "bb": 0}, {"n": "SUPER JOKER", "bb": 0}, {"n": "TEMPLAR TUMBLE", "bb": 0}, {"n": "THE CHAMPIONS", "bb": 0}, {"n": "THE WILD MACHINE", "bb": 0}, {"n": "THREE STAR FORTUNE", "bb": 0},
-            {"n": "TREE OF RICHES", "bb": 0}, {"n": "TRIPLE DRAGONS", "bb": 0}, {"n": "TRIPLE JOKER", "bb": 0}, {"n": "VAMPIRE VS WOLVES", "bb": 0}, {"n": "VEGAS MAGIC", "bb": 0}, {"n": "VEGAS NIGHTS", "bb": 0},
-            {"n": "VOODOO MAGIC", "bb": 0}, {"n": "WILD GLADIATORS", "bb": 0}, {"n": "WILD PIXIES", "bb": 0}, {"n": "WILD SPELLS", "bb": 0}, {"n": "WILD WALKER", "bb": 0}
-        ],
-        "PG SOFT": [
-            {"n": "MAHJONG WAYS", "bb": 0}, {"n": "MAHJONG WAYS 2", "bb": 0}, {"n": "LUCKY NEKO", "bb": 0}, {"n": "TREASURES OF AZTEC", "bb": 0}, {"n": "FORTUNE OX", "bb": 0}, {"n": "FORTUNE MOUSE", "bb": 0},
-            {"n": "FORTUNE TIGER", "bb": 0}, {"n": "FORTUNE RABBIT", "bb": 0}, {"n": "FORTUNE DRAGON", "bb": 0}, {"n": "DRAGON HATCH", "bb": 0}, {"n": "DRAGON HATCH 2", "bb": 0}, {"n": "GATES OF GATOT KACA", "bb": 0},
-            {"n": "CAISHEN WINS", "bb": 0}, {"n": "GANESHA GOLD", "bb": 0}, {"n": "WILD BANDITO", "bb": 0}, {"n": "WAYS OF THE QILIN", "bb": 0}, {"n": "DREAMS OF MACAU", "bb": 0}, {"n": "SUPERMARKET SPREE", "bb": 0},
-            {"n": "ROYAL KATT", "bb": 0}, {"n": "CANDY BONANZA", "bb": 1}, {"n": "HEIST STAKES", "bb": 0}, {"n": "RISE OF APOLLO", "bb": 0}, {"n": "CRYPTO GOLD", "bb": 0}, {"n": "BALI VACATION", "bb": 0},
-            {"n": "OPERA DYNASTY", "bb": 0}, {"n": "GUARDIANS OF ICE & FIRE", "bb": 0}, {"n": "JACK FROST'S WINTER", "bb": 0}, {"n": "GALACTIC GEMS", "bb": 0}, {"n": "JEWELS OF PROSPERITY", "bb": 0}, {"n": "QUEEN OF BOUNTY", "bb": 0},
-            {"n": "VAMPIRE'S CHARM", "bb": 0}, {"n": "SECRET OF CLEOPATRA", "bb": 0}, {"n": "GENIE'S 3 WISHES", "bb": 0}, {"n": "CIRCUS DELIGHT", "bb": 0}, {"n": "DRAGON TIGER LUCK", "bb": 0}, {"n": "PHOENIX RISES", "bb": 0},
-            {"n": "WILD FIREWORKS", "bb": 0}, {"n": "EGYPT'S BOOK OF MYSTERY", "bb": 0}, {"n": "CAPTAIN'S BOUNTY", "bb": 0}, {"n": "JOURNEY TO THE WEALTH", "bb": 0}, {"n": "GEM SAVIOUR", "bb": 0}, {"n": "GEM SAVIOUR SWORD", "bb": 0},
-            {"n": "PIGGY GOLD", "bb": 0}, {"n": "JUNGLE DELIGHT", "bb": 0}, {"n": "THREE MONKEYS", "bb": 0}, {"n": "EMPEROR'S FAVOUR", "bb": 0}, {"n": "MUAY THAI CHAMPION", "bb": 0}, {"n": "THE GREAT ICESCAPE", "bb": 0},
-            {"n": "LEPRECHAUN RICHES", "bb": 0}, {"n": "FLIRTING SCHOLAR", "bb": 0}, {"n": "NINJA VS SAMURAI", "bb": 0}, {"n": "DRAGON LEGEND", "bb": 0}, {"n": "SANTA'S GIFT RUSH", "bb": 0}, {"n": "BATTLEGROUND ROYALE", "bb": 0},
-            {"n": "ROOSTER RUMBLE", "bb": 0}, {"n": "BUTTERFLY BLOSSOM", "bb": 0}, {"n": "LUCKY PIGGY", "bb": 0}, {"n": "PROSPERITY FORTUNE TREE", "bb": 0}, {"n": "TOTEM WONDERS", "bb": 0}, {"n": "ALCHEMY GOLD", "bb": 0},
-            {"n": "MIDAS FORTUNE", "bb": 0}, {"n": "BAKERY BONANZA", "bb": 1}, {"n": "RAVE PARTY FEVER", "bb": 0}, {"n": "LUXURY GOODS", "bb": 0}, {"n": "MYSTICAL SPIRITS", "bb": 0}, {"n": "ULTIMATE STRIKER", "bb": 0},
-            {"n": "PINATA WINS", "bb": 0}, {"n": "SAFARI WILDS", "bb": 0}, {"n": "WEREWOLF'S HUNT", "bb": 0}, {"n": "GLADIATOR'S GLORY", "bb": 0}, {"n": "CRUISE ROYALE", "bb": 0}, {"n": "THREE PIGLETS", "bb": 0},
-            {"n": "SONGKRAN SPLASH", "bb": 0}, {"n": "HAWAIIAN TIKI", "bb": 0}, {"n": "SPIRITED WONDERS", "bb": 0}, {"n": "LEGEND OF PERSEUS", "bb": 0}, {"n": "ORIENTAL PROSPERITY", "bb": 0}, {"n": "MASK CARNIVAL", "bb": 0},
-            {"n": "EMOJI RICHES", "bb": 0}, {"n": "FARM INVADERS", "bb": 0}, {"n": "DESTINY OF SUN & MOON", "bb": 0}, {"n": "MAJESTIC TREASURES", "bb": 0}, {"n": "CANDY BURST", "bb": 0}, {"n": "ASGARDIA", "bb": 0},
-            {"n": "BIKINI PARADISE", "bb": 0}, {"n": "DOUBLE FORTUNE", "bb": 0}, {"n": "GEM SAVIOUR CONQUEST", "bb": 0}, {"n": "HOOD VS WOLF", "bb": 0}, {"n": "HOTPOT", "bb": 0}, {"n": "ICE SCAPE", "bb": 0},
-            {"n": "LEGEND OF HOU YI", "bb": 0}, {"n": "MEDUSA II", "bb": 0}, {"n": "MEDUSA", "bb": 0}, {"n": "MR. HALLOW-WIN", "bb": 0}, {"n": "PLUSHIE FRENZY", "bb": 0}, {"n": "PROSPERITY LION", "bb": 0},
-            {"n": "REEL LOVE", "bb": 0}, {"n": "SHAOLIN SOCCER", "bb": 0}, {"n": "STEAMPUNK FORTUNE", "bb": 0}, {"n": "SYMBOLS OF EGYPT", "bb": 0}, {"n": "TREE OF FORTUNE", "bb": 0}, {"n": "WIN WIN WON", "bb": 0}
-        ],
-        "JILI": [
-            {"n": "SUPER ACE", "bb": 0}, {"n": "SUPER ACE DELUXE", "bb": 0}, {"n": "GOLDEN EMPIRE", "bb": 0}, {"n": "GOLDEN EMPIRE 2", "bb": 0}, {"n": "FORTUNE GEMS", "bb": 0}, {"n": "FORTUNE GEMS 2", "bb": 0},
-            {"n": "FORTUNE GEMS 3", "bb": 0}, {"n": "MONEY COMING", "bb": 0}, {"n": "MONEY COMING EXPAND", "bb": 0}, {"n": "BOXING KING", "bb": 0}, {"n": "ALI BABA", "bb": 0}, {"n": "MEGA ACE", "bb": 0},
-            {"n": "MAGIC LAMP", "bb": 0}, {"n": "TWIN WINS", "bb": 0}, {"n": "FENG SHEN", "bb": 0}, {"n": "ROMA X", "bb": 0}, {"n": "ROMA X DELUXE", "bb": 0}, {"n": "CRAZY 777", "bb": 0},
-            {"n": "GOLDEN QUEEN", "bb": 0}, {"n": "JUNGLE KING", "bb": 0}, {"n": "CHARGE BUFFALO", "bb": 0}, {"n": "CHARGE BUFFALO 2", "bb": 0}, {"n": "PHARAOH TREASURE", "bb": 0}, {"n": "BUBBLE BEAUTY", "bb": 0},
-            {"n": "CANDY BABY", "bb": 0}, {"n": "NIGHT CITY", "bb": 0}, {"n": "SUPER RICH", "bb": 0}, {"n": "HAPPY TAXI", "bb": 0}, {"n": "WORLD CUP", "bb": 0}, {"n": "MAYAN EMPIRE", "bb": 0},
-            {"n": "CHIN SHI HUANG", "bb": 0}, {"n": "GOLDEN BANK", "bb": 0}, {"n": "LUCKY GOLDBRICKS", "bb": 0}, {"n": "HYPER BURST", "bb": 0}, {"n": "PARTY NIGHT", "bb": 0}, {"n": "SEVEN SEVEN SEVEN", "bb": 0},
-            {"n": "WAR OF DRAGONS", "bb": 0}, {"n": "AGENT ACE", "bb": 0}, {"n": "HOT CHILLI", "bb": 0}, {"n": "MEDUSA", "bb": 0}, {"n": "SECRET TREASURE", "bb": 0}, {"n": "TRIAL OF ADVERSITY", "bb": 0},
-            {"n": "WILD PANDA", "bb": 0}, {"n": "BOOK OF GOLD", "bb": 0}, {"n": "GOD OF MARTIAL", "bb": 0}, {"n": "SAMURAI", "bb": 0}, {"n": "WILD RACER", "bb": 0}, {"n": "GOLDEN LAND", "bb": 0},
-            {"n": "LUCKY LADY", "bb": 0}, {"n": "SUPER JOKER", "bb": 0}, {"n": "CRAZY FA FA FA", "bb": 0}, {"n": "DRAGON & TIGER", "bb": 0}, {"n": "KA CHIN", "bb": 0}, {"n": "LUCKY DIAMOND", "bb": 0},
-            {"n": "WORLD CUP 2022", "bb": 0}, {"n": "GOLDEN JOKER", "bb": 0}, {"n": "JILI CAISHEN", "bb": 0}, {"n": "BOOK OF MYSTERY", "bb": 0}, {"n": "PIRATE QUEEN", "bb": 0}, {"n": "MONEY TREE", "bb": 0},
-            {"n": "TREASURE BOWL", "bb": 0}, {"n": "WILD FOX", "bb": 0}, {"n": "CRAZY GOLDEN BANK", "bb": 0}, {"n": "SUPER NIUBI", "bb": 0}, {"n": "777", "bb": 0}, {"n": "ACE OF SPADES", "bb": 0},
-            {"n": "BAO BOON CHIN", "bb": 0}, {"n": "FORTUNE TREE", "bb": 0}
-        ],
-        "NOLIMIT CITY": [
-            {"n": "SAN QUENTIN XWAYS", "bb": 0}, {"n": "MENTAL", "bb": 0}, {"n": "FIRE IN THE HOLE", "bb": 0}, {"n": "DAS XBOOT", "bb": 0}, {"n": "XWAYS HOARDER", "bb": 0}, {"n": "EAST COAST VS WEST COAST", "bb": 0},
-            {"n": "PUNK ROCKER", "bb": 0}, {"n": "DEADWOOD", "bb": 0}, {"n": "TOMBSTONE", "bb": 0}, {"n": "TOMBSTONE RIP", "bb": 0}, {"n": "EL PASO GUNFIGHT", "bb": 0}, {"n": "BUSHIDO WAYS", "bb": 0},
-            {"n": "INFECTIOUS 5", "bb": 0}, {"n": "WARRIOR GRAVEYARD", "bb": 0}, {"n": "BARBARIAN FURY", "bb": 0}, {"n": "DRAGON TRIBE", "bb": 0}, {"n": "GAELIC GOLD", "bb": 0}, {"n": "HARLEQUIN CARNIVAL", "bb": 0},
-            {"n": "ICE ICE YETI", "bb": 0}, {"n": "KITCHEN DRAMA", "bb": 0}, {"n": "MANHATTAN GOES WILD", "bb": 0}, {"n": "MAYA MAGIC", "bb": 0}, {"n": "MILKY WAYS", "bb": 0}, {"n": "MONKEY'S GOLD", "bb": 0},
-            {"n": "OWLS", "bb": 0}, {"n": "PIXIES VS PIRATES", "bb": 0}, {"n": "POISON EVE", "bb": 0}, {"n": "STARSTRUCK", "bb": 0}, {"n": "TESLA JOLT", "bb": 0}, {"n": "THE CREEPY CARNIVAL", "bb": 0},
-            {"n": "THOR", "bb": 0}, {"n": "TRACTOR BEAM", "bb": 0}, {"n": "TURST YOURSELF", "bb": 0}, {"n": "WIXX", "bb": 0}, {"n": "HOT 4 CASH", "bb": 0}, {"n": "IMMORTAL FRUITS", "bb": 0},
-            {"n": "BOOK OF SHADOWS", "bb": 0}, {"n": "GOLDEN GENIE", "bb": 0}, {"n": "TOMB OF NEFERTITI", "bb": 0}, {"n": "TOMB OF AKHENATEN", "bb": 0}, {"n": "FOXY WILD HEART", "bb": 0}, {"n": "EVIL GOBLINS", "bb": 0},
-            {"n": "LEGION X", "bb": 0}, {"n": "TRUE GRIT REDEMPTION", "bb": 0}, {"n": "MISERY MINING", "bb": 0}, {"n": "REMEMBER GULAG", "bb": 0}, {"n": "KAREN MANEATER", "bb": 0}, {"n": "THE RAVE", "bb": 0},
-            {"n": "ROAD RAGE", "bb": 0}, {"n": "NINE TO FIVE", "bb": 0}, {"n": "DEVIL'S CROSSROAD", "bb": 0}, {"n": "D-DAY", "bb": 0}, {"n": "POSSESSED", "bb": 0}, {"n": "KENNY'S BEST", "bb": 0},
-            {"n": "LAND OF THE FREE", "bb": 0}, {"n": "BRICK SNAKE 2000", "bb": 0}, {"n": "FIRE IN THE HOLE 2", "bb": 0}, {"n": "WHACKED!", "bb": 0}, {"n": "BLOOD & SHADOW", "bb": 0}, {"n": "DISTURBED", "bb": 0},
-            {"n": "KISS MY CHAINS", "bb": 0}, {"n": "BENJI KILLED IN VEGAS", "bb": 0}, {"n": "WALK OF SHAME", "bb": 0}, {"n": "THE CAGE", "bb": 0}, {"n": "GLUTTONY", "bb": 0}, {"n": "THE CRYPT", "bb": 0},
-            {"n": "DJ PSYCHO", "bb": 0}, {"n": "SERIAL", "bb": 0}, {"n": "PEARL HARBOR", "bb": 0}, {"n": "DEAD CANARY", "bb": 0}, {"n": "FOLSOM PRISON", "bb": 0}, {"n": "THE SHADOW ORDER", "bb": 0},
-            {"n": "WOLF RITUAL", "bb": 0}
-        ],
-        "MICROGAMING": [
-            {"n": "MEGA MOOLAH", "bb": 0}, {"n": "IMMORTAL ROMANCE", "bb": 0}, {"n": "THUNDERSTRUCK II", "bb": 0}, {"n": "9 MASKS OF FIRE", "bb": 0}, {"n": "BREAK DA BANK AGAIN", "bb": 0}, {"n": "JURASSIC PARK", "bb": 0},
-            {"n": "GAME OF THRONES", "bb": 0}, {"n": "AVALON II", "bb": 0}, {"n": "BOOK OF OZ", "bb": 0}, {"n": "WHEEL OF WISHES", "bb": 0}, {"n": "ADVENTURE PALACE", "bb": 0}, {"n": "AGENT JANE BLONDE", "bb": 0},
-            {"n": "ARIANA", "bb": 0}, {"n": "BIG BAD WOLF", "bb": 0}, {"n": "BUST THE BANK", "bb": 0}, {"n": "CARNAVAL", "bb": 0}, {"n": "COOL BUCK", "bb": 0}, {"n": "DECK THE HALLS", "bb": 0},
-            {"n": "DRAGONZ", "bb": 0}, {"n": "EAGLE'S WINGS", "bb": 0}, {"n": "EMPEROR OF THE SEA", "bb": 0}, {"n": "FOOTBALL STAR", "bb": 0}, {"n": "FORBIDDEN THRONE", "bb": 0}, {"n": "FORTUNIUM", "bb": 0},
-            {"n": "GIRLS WITH GUNS", "bb": 0}, {"n": "GOLD FACTORY", "bb": 0}, {"n": "HALLOWEEN", "bb": 0}, {"n": "HAPPY HOLIDAYS", "bb": 0}, {"n": "HELLBOY", "bb": 0}, {"n": "HIGHLANDER", "bb": 0},
-            {"n": "HITMAN", "bb": 0}, {"n": "HOT INK", "bb": 0}, {"n": "JUNGLE JIM EL DORADO", "bb": 0}, {"n": "KATHMANDU", "bb": 0}, {"n": "KINGS OF CASH", "bb": 0}, {"n": "LADIES NITE", "bb": 0},
-            {"n": "LARA CROFT", "bb": 0}, {"n": "LOADED", "bb": 0}, {"n": "LOST VEGAS", "bb": 0}, {"n": "LUCKY LEPRECHAUN", "bb": 0}, {"n": "LUCKY ZODIAC", "bb": 0}, {"n": "PLAYBOY", "bb": 0},
-            {"n": "PRETTY KITTY", "bb": 0}, {"n": "PURE PLATINUM", "bb": 0}, {"n": "RETRO REELS", "bb": 0}, {"n": "TERMINATOR 2", "bb": 0}, {"n": "TOMB RAIDER", "bb": 0}, {"n": "TREASURE NILE", "bb": 0},
-            {"n": "WAXY VAN GOGH", "bb": 0}, {"n": "WICKED TALES", "bb": 0}, {"n": "WILD SCARABS", "bb": 0}, {"n": "WOLF HOWL", "bb": 0}, {"n": "AMAZING LINK ZEUS", "bb": 0}, {"n": "ANCIENT FORTUNES: ZEUS", "bb": 0},
-            {"n": "ASSASSIN MOON", "bb": 0}, {"n": "AURUM CODEX", "bb": 0}, {"n": "BANANA ODYSSEY", "bb": 0}, {"n": "BATTLE ROYAL", "bb": 0}, {"n": "BEAUTIFUL BONES", "bb": 0}, {"n": "BIG KAHUNA", "bb": 0},
-            {"n": "5 REEL DRIVE", "bb": 0}, {"n": "777 ROYAL WHEEL", "bb": 0}, {"n": "A DARK MATTER", "bb": 0}, {"n": "ABSALOOTLY MAD", "bb": 0}, {"n": "AFRICAN QUEST", "bb": 0}, {"n": "AGE OF CONQUEST", "bb": 0},
-            {"n": "ALCHEMISTS GOLD", "bb": 0}, {"n": "ALL WIN FC", "bb": 0}, {"n": "AMAZING LINK APOLLO", "bb": 0}, {"n": "ANCIENT FORTUNES: POSEIDON", "bb": 0}, {"n": "ARENA OF GOLD", "bb": 0}, {"n": "ARTHUR'S FORTUNE", "bb": 0},
-            {"n": "ATLANTIS RISING", "bb": 0}, {"n": "AURORA WILD", "bb": 0}, {"n": "AZTEC FALLS", "bb": 0}, {"n": "BAR BAR BLACK SHEEP", "bb": 0}, {"n": "BEACH BABES", "bb": 0}, {"n": "BELIEVE IT OR NOT", "bb": 0},
-            {"n": "BIG TOP", "bb": 0}, {"n": "BOOK OF ATEM", "bb": 0}, {"n": "BOOK OF CAPTAIN SILVER", "bb": 0}, {"n": "BOOK OF KING ARTHUR", "bb": 0}, {"n": "BOOM PIRATES", "bb": 0}, {"n": "BREAK AWAY", "bb": 0},
-            {"n": "BREAK AWAY LUCKY WILDS", "bb": 0}, {"n": "BULLSEYE", "bb": 0}, {"n": "BURNING DESIRE", "bb": 0}, {"n": "BUSH TELEGRAPH", "bb": 0}, {"n": "CASH OF KINGDOMS", "bb": 0}, {"n": "CASH SPLASH", "bb": 0},
-            {"n": "CASHVILLE", "bb": 0}, {"n": "CAT IN VEGAS", "bb": 0}, {"n": "CELEBRATION OF WEALTH", "bb": 0}, {"n": "CENTURION", "bb": 0}, {"n": "CHICAGO GOLD", "bb": 0}
-        ],
-        "BNG (BOOONGO)": [
-            {"n": "SUN OF EGYPT", "bb": 0}, {"n": "SUN OF EGYPT 2", "bb": 0}, {"n": "SUN OF EGYPT 3", "bb": 0}, {"n": "SUN OF EGYPT 4", "bb": 0}, {"n": "15 DRAGON PEARLS", "bb": 0}, {"n": "DRAGON PEARLS", "bb": 0},
-            {"n": "MAGIC APPLE", "bb": 0}, {"n": "MAGIC APPLE 2", "bb": 0}, {"n": "TIGER JUNGLE", "bb": 0}, {"n": "HIT THE GOLD", "bb": 0}, {"n": "BLACK WOLF", "bb": 0}, {"n": "BLACK WOLF 2", "bb": 0},
-            {"n": "AZTEC SUN", "bb": 0}, {"n": "GREAT PANDA", "bb": 0}, {"n": "MOON SISTERS", "bb": 0}, {"n": "BUDDHA FORTUNE", "bb": 0}, {"n": "SCARAB TEMPLE", "bb": 0}, {"n": "3 COINS", "bb": 0},
-            {"n": "3 COINS EGYPT", "bb": 0}, {"n": "3 HOT CHILLIES", "bb": 0}, {"n": "WUKONG", "bb": 0}, {"n": "WOLF SAGA", "bb": 0}, {"n": "QUEEN OF THE SUN", "bb": 0}, {"n": "GOLD EXPRESS", "bb": 0},
-            {"n": "CANDY BOOM", "bb": 0}, {"n": "GIE GIE GIE", "bb": 0}, {"n": "LOTUS CHARM", "bb": 0}, {"n": "ORCHID PRINCESS", "bb": 1}, {"n": "TIGER STONE", "bb": 0}, {"n": "SUPER RICH GOD", "bb": 0},
-            {"n": "EYE OF GOLD", "bb": 0}, {"n": "BOOK OF SUN", "bb": 0}, {"n": "BOOK OF SUN MULTICHANCE", "bb": 0}, {"n": "GOD'S TEMPLE", "bb": 0}, {"n": "OLYMPIAN GODS", "bb": 0}, {"n": "POISONED APPLE", "bb": 0},
-            {"n": "POISONED APPLE 2", "bb": 0}, {"n": "777 GEMS", "bb": 0}, {"n": "SUPREME HOT", "bb": 0}, {"n": "STAR GEMS", "bb": 0}, {"n": "SKY GEMS", "bb": 0}, {"n": "GREEN CHILLI", "bb": 0},
-            {"n": "GREEN CHILLI 2", "bb": 0}, {"n": "MORE MAGIC APPLE", "bb": 0}, {"n": "OIAO MEI", "bb": 0}, {"n": "COIN VOLCANO", "bb": 0}, {"n": "EGYPT FIRE", "bb": 0}, {"n": "RIO GEMS", "bb": 0},
-            {"n": "HIT MORE GOLD", "bb": 0}, {"n": "STICKY PIGGY", "bb": 0}, {"n": "GODDESS OF EGYPT", "bb": 0}, {"n": "BOOM! BOOM! GOLD!", "bb": 0}
-        ],
-        "BIGPOT GAMING": [
-            {"n": "GOLDEN ERA", "bb": 0}, {"n": "SECRET OF RICHES", "bb": 0}, {"n": "LUCKY SEVEN", "bb": 0}, {"n": "WILD WEST SALOON", "bb": 0}, {"n": "PIRATE KING", "bb": 0}, {"n": "DRAGON LEGEND", "bb": 0},
-            {"n": "MAGIC FOREST", "bb": 0}, {"n": "CANDY POP", "bb": 0}, {"n": "NEON CITY", "bb": 0}, {"n": "ANCIENT TREASURES", "bb": 0}, {"n": "SAMURAI'S HONOR", "bb": 0}, {"n": "VIKING GLORY", "bb": 0},
-            {"n": "PHARAOH'S CURSE", "bb": 0}, {"n": "MYSTIC MOON", "bb": 0}, {"n": "JUNGLE ADVENTURE", "bb": 0}, {"n": "SPACE ODYSSEY", "bb": 0}, {"n": "ALADDIN'S WISH", "bb": 0}, {"n": "HERCULES", "bb": 0},
-            {"n": "ZOMBIE ATTACK", "bb": 0}, {"n": "HALLOWEEN NIGHT", "bb": 0}, {"n": "CHRISTMAS JOY", "bb": 0}, {"n": "LUCKY FARM", "bb": 0}, {"n": "CASINO ROYALE", "bb": 0}, {"n": "NINJA SQUAD", "bb": 0},
-            {"n": "ROBOT WARS", "bb": 0}, {"n": "FANTASY WORLD", "bb": 0}, {"n": "DRAGON SLAYER", "bb": 0}, {"n": "KUNG FU MASTER", "bb": 0}, {"n": "FOOTBALL FEVER", "bb": 0}, {"n": "RACING STARS", "bb": 0},
-            {"n": "FRUIT SPLASH", "bb": 0}, {"n": "DIAMOND RUSH", "bb": 0}, {"n": "PANDA WARRIOR", "bb": 0}, {"n": "SKY GUARDIAN", "bb": 0}, {"n": "TREASURE ISLAND", "bb": 0}, {"n": "WILD SAFARI", "bb": 0},
-            {"n": "MAGIC SPELL", "bb": 0}, {"n": "LUCKY DICE", "bb": 0}, {"n": "GOLDEN RUSH", "bb": 0}
-        ],
-        "HACKSAW GAMING": [
-            {"n": "WANTED DEAD OR A WILD", "bb": 0}, {"n": "CHAOS CREW", "bb": 0}, {"n": "CHAOS CREW II", "bb": 0}, {"n": "HAND OF ANUBIS", "bb": 0}, {"n": "RIP CITY", "bb": 0}, {"n": "LE BANDIT", "bb": 0},
-            {"n": "DORK UNIT", "bb": 0}, {"n": "STACK 'EM", "bb": 0}, {"n": "STICK 'EM", "bb": 0}, {"n": "TOSHI VIDEO CLUB", "bb": 0}, {"n": "DROP 'EM", "bb": 0}, {"n": "ROTTEN", "bb": 0},
-            {"n": "GLADIATOR LEGENDS", "bb": 0}, {"n": "STORMFORGED", "bb": 0}, {"n": "THE BOWERY BOYS", "bb": 0}, {"n": "PUG LIFE", "bb": 0}, {"n": "ITERCH", "bb": 0}, {"n": "KING CARROT", "bb": 0},
-            {"n": "JOKER BOMBS", "bb": 0}, {"n": "CUBES", "bb": 0}, {"n": "CUBES 2", "bb": 0}, {"n": "DOUBLE RAINBOW", "bb": 0}, {"n": "TASTY TREATS", "bb": 0}, {"n": "XPW", "bb": 0},
-            {"n": "UNDEA FORTUNE", "bb": 0}, {"n": "FEAR THE DARK", "bb": 0}, {"n": "BEAST BELOW", "bb": 0}, {"n": "SLAYERS INC", "bb": 0}, {"n": "DARK SUMMONING", "bb": 0}, {"n": "BENNY THE BEER", "bb": 0},
-            {"n": "2 WILD 2 DIE", "bb": 0}, {"n": "FEEL THE BEAT", "bb": 0}, {"n": "FIST OF DESTRUCTION", "bb": 0}, {"n": "DIVINE DROP", "bb": 0}, {"n": "RUSTY & CURLY", "bb": 0}, {"n": "CASH CREW", "bb": 0},
-            {"n": "BEAM BOYS", "bb": 0}, {"n": "BARBARIAN STASH", "bb": 0}, {"n": "JAGGED STONES", "bb": 0}, {"n": "SIXSIXSIX", "bb": 0}, {"n": "OMICRON", "bb": 0}, {"n": "HOP'N'POP", "bb": 0},
-            {"n": "FRUIT DUEL", "bb": 0}, {"n": "BORN WILD", "bb": 0}, {"n": "FOREST FORTUNE", "bb": 0}, {"n": "HARVEST WILD", "bb": 0}, {"n": "AZTEC TWIST", "bb": 0}, {"n": "MYSTERY MOTEL", "bb": 0},
-            {"n": "SCRATCH BRONZE", "bb": 0}, {"n": "SCRATCH PLATINUM", "bb": 0}, {"n": "ALPHA EAGLE", "bb": 0}, {"n": "BLOODTHIRST", "bb": 0}, {"n": "BREAK BONES", "bb": 0}, {"n": "CASH QUEST", "bb": 0},
-            {"n": "CASH-A-CABANA", "bb": 0}, {"n": "CAT CLANS", "bb": 0}, {"n": "EGGSTRAVAGANZA", "bb": 0}, {"n": "EYE OF THE PANDA", "bb": 0}, {"n": "ITERERO", "bb": 0}, {"n": "JELLY REELS", "bb": 0},
-            {"n": "POCKET ROCKETS", "bb": 0}, {"n": "WARRIOR WAYS", "bb": 0}, {"n": "WILD YIELD", "bb": 0}
-        ],
-        "FA CHAI": [
-            {"n": "CHINESE NEW YEAR", "bb": 0}, {"n": "CHINESE NEW YEAR 2", "bb": 0}, {"n": "NIGHT MARKET", "bb": 0}, {"n": "GOLDEN GENIE", "bb": 0}, {"n": "THREE LITTLE PIGS", "bb": 0}, {"n": "DA LE MEN", "bb": 0},
-            {"n": "MAGIC BEANS", "bb": 0}, {"n": "WIN WIN NEKO", "bb": 0}, {"n": "PANDA DRAGON BOAT", "bb": 0}, {"n": "BAO BOON CHIN", "bb": 0}, {"n": "WILD BUFFALO", "bb": 0}, {"n": "GOLDEN PANTHER", "bb": 0},
-            {"n": "CRAZY CIRCUS", "bb": 0}, {"n": "ANIMAL RACING", "bb": 0}, {"n": "HALLOWEEN BOOM", "bb": 0}, {"n": "LEGEND OF DRAGON", "bb": 0}, {"n": "PHOENIX ADVENTURE", "bb": 0}, {"n": "LUCKY FORTUNES", "bb": 0},
-            {"n": "GRAND BLUE", "bb": 0}, {"n": "TREASURE CRUISE", "bb": 0}, {"n": "GLORY OF ROME", "bb": 0}, {"n": "RICH MAN", "bb": 0}, {"n": "LUCKY CLOVER", "bb": 0}, {"n": "HOT POT PARTY", "bb": 0},
-            {"n": "GOLDEN DRAGON", "bb": 0}, {"n": "KA-CHING", "bb": 0}, {"n": "PONG PONG HU", "bb": 0}, {"n": "MAHJONG WAYS 3", "bb": 0}, {"n": "FORTUNE GOD", "bb": 0}, {"n": "LUCKY WHEEL", "bb": 0},
-            {"n": "DISCO NIGHT", "bb": 0}
-        ],
-        "JDB GAMING": [
-            {"n": "BURGER SHOP", "bb": 0}, {"n": "KONGFU", "bb": 0}, {"n": "BIRDS AND ANIMALS", "bb": 0}, {"n": "LUCKY 7", "bb": 0}, {"n": "CRYSTAL REALM", "bb": 0}, {"n": "ORIENTAL BEAUTY", "bb": 0},
-            {"n": "DRAGON MASTER", "bb": 0}, {"n": "BLOSSOM OF WEALTH", "bb": 0}, {"n": "KINGSMAN", "bb": 0}, {"n": "NINJA RUSH", "bb": 0}, {"n": "LUCKY RACING", "bb": 0}, {"n": "TRIPLE KING KONG", "bb": 0},
-            {"n": "FORMOSA BEAR", "bb": 0}, {"n": "WINNING MASK", "bb": 0}, {"n": "GOAL", "bb": 0}, {"n": "BILLIONAIRE", "bb": 0}, {"n": "MONEY BAGS MAN", "bb": 0}, {"n": "LUCKY QILIN", "bb": 0},
-            {"n": "OPEN SESAME", "bb": 0}, {"n": "LUCKY DRAGON", "bb": 0}, {"n": "SUPER NIUBI", "bb": 0}, {"n": "FLIRTING SCHOLAR TANG", "bb": 0}, {"n": "MAHJONG", "bb": 0}, {"n": "BANANA SAGA", "bb": 0},
-            {"n": "STREET FIGHTER", "bb": 0}, {"n": "SHADE DRAGONS", "bb": 0}, {"n": "DRAGON WARRIOR", "bb": 0}, {"n": "LUCKY DIAMOND", "bb": 0}, {"n": "COFFEE TYCOON", "bb": 0}, {"n": "ZODIAC", "bb": 0},
-            {"n": "TREASURE BOWL", "bb": 0}, {"n": "WILD WEST", "bb": 0}, {"n": "EGYPT TREASURE", "bb": 0}, {"n": "FUNKY KING", "bb": 0}, {"n": "CRAZY SCIENTIST", "bb": 0}, {"n": "PIRATE TREASURE", "bb": 0},
-            {"n": "MAGIC WORLD", "bb": 0}, {"n": "WONDERLAND", "bb": 0}, {"n": "HALLOWEEN PARTY", "bb": 0}, {"n": "CHRISTMAS SURPRISE", "bb": 0}
-        ],
-        "PLAY'N GO": [
-            {"n": "BOOK OF DEAD", "bb": 0}, {"n": "REACTOONZ", "bb": 0}, {"n": "REACTOONZ 2", "bb": 0}, {"n": "MOON PRINCESS", "bb": 1}, {"n": "MOON PRINCESS 100", "bb": 1}, {"n": "MOON PRINCESS TRINITY", "bb": 1},
-            {"n": "RISE OF OLYMPUS", "bb": 0}, {"n": "RISE OF OLYMPUS 100", "bb": 0}, {"n": "GEMIX", "bb": 0}, {"n": "GEMIX 2", "bb": 0}, {"n": "FIRE JOKER", "bb": 0}, {"n": "LEGACY OF DEAD", "bb": 0},
-            {"n": "TOME OF MADNESS", "bb": 0}, {"n": "HONEY RUSH", "bb": 0}, {"n": "HONEY RUSH 100", "bb": 0}, {"n": "GOLDEN TICKET", "bb": 0}, {"n": "GOLDEN TICKET 2", "bb": 0}, {"n": "SWEET ALCHEMY", "bb": 0},
-            {"n": "SWEET ALCHEMY 2", "bb": 0}, {"n": "RISE OF MERLIN", "bb": 0}, {"n": "PIMPED", "bb": 0}, {"n": "XMAS JOKER", "bb": 0}, {"n": "MYSTERY JOKER", "bb": 0}, {"n": "BIG WIN CAT", "bb": 0},
-            {"n": "HOT TO BURN", "bb": 0}, {"n": "BOAT BONANZA", "bb": 1}, {"n": "CLASH OF CAMELOT", "bb": 0}, {"n": "COUNT JOKULA", "bb": 0}, {"n": "DIO KILLING THE DRAGON", "bb": 0}, {"n": "CHAMPS-ELYSEES", "bb": 0},
-            {"n": "CANINE CARNAGE", "bb": 0}, {"n": "USA FLIP", "bb": 0}, {"n": "SHAMROCK MINER", "bb": 0}, {"n": "WILD FALLS 2", "bb": 0}, {"n": "GRIM THE SPLITTER", "bb": 0}, {"n": "LEGACY OF INCA", "bb": 0},
-            {"n": "GAME OF GLADIATORS", "bb": 0}, {"n": "SAFARI OF WEALTH", "bb": 0}, {"n": "CAT WILDE", "bb": 0}, {"n": "RICH WILDE", "bb": 0}, {"n": "AGENT DESTINY", "bb": 0}, {"n": "ANCIENT EGYPT", "bb": 0},
-            {"n": "ANNIHILATOR", "bb": 0}, {"n": "AZTEC IDOLS", "bb": 0}, {"n": "AZTEC WARRIOR PRINCESS", "bb": 1}, {"n": "BAKER'S TREAT", "bb": 0}, {"n": "BATTLE ROYAL", "bb": 0}, {"n": "7 SINS", "bb": 0},
-            {"n": "ACE OF SPADES", "bb": 0}, {"n": "BEAST OF WEALTH", "bb": 0}, {"n": "BELL OF FORTUNE", "bb": 0}, {"n": "BIG WIN 777", "bb": 0}, {"n": "BLACK MAMBA", "bb": 0}, {"n": "BLAZIN' BULLFROG", "bb": 0},
-            {"n": "BULL IN A CHINA SHOP", "bb": 0}, {"n": "CASH PUMP", "bb": 0}, {"n": "CASH VANDAL", "bb": 0}, {"n": "CELEBRATION OF WEALTH", "bb": 0}, {"n": "CHARLIE CHANCE", "bb": 0}, {"n": "CHINESE NEW YEAR", "bb": 0},
-            {"n": "CHRONOS JOKER", "bb": 0}, {"n": "CLOUD QUEST", "bb": 0}, {"n": "COPS 'N' ROBBERS", "bb": 0}, {"n": "COURT OF HEARTS", "bb": 0}, {"n": "COYOTE CASH", "bb": 0}, {"n": "CRYSTAL SUN", "bb": 0},
-            {"n": "DAWN OF EGYPT", "bb": 0}, {"n": "DEADLY 5", "bb": 0}, {"n": "DEMON", "bb": 0}, {"n": "DERBY WHEEL", "bb": 0}, {"n": "DIAMOND VORTEX", "bb": 0}, {"n": "DIVINE SHOWDOWN", "bb": 0},
-            {"n": "DOOM OF EGYPT", "bb": 0}, {"n": "DRAGON MAIDEN", "bb": 0}, {"n": "DRAGON SHIP", "bb": 0}, {"n": "EASTER EGGS", "bb": 0}, {"n": "EGYPTIAN FORTUNE", "bb": 0}, {"n": "ENERGOONZ", "bb": 0},
-            {"n": "EYE OF THE ATUM", "bb": 0}, {"n": "FACES OF FREYA", "bb": 0}, {"n": "FIRE JOKER FREEZE", "bb": 0}, {"n": "FIRE TOAD", "bb": 0}, {"n": "FORGE OF FORTUNES", "bb": 0}, {"n": "FORTUNE REWIND", "bb": 0},
-            {"n": "FROZEN GEMS", "bb": 0}, {"n": "GHOST OF DEAD", "bb": 0}, {"n": "GIGANTUANZ", "bb": 0}, {"n": "GOLD KING", "bb": 0}, {"n": "GOLD TROPHY 2", "bb": 0}, {"n": "GOLD VOLCANO", "bb": 0},
-            {"n": "GUNSLINGER", "bb": 0}, {"n": "HALLOWEEN JACK", "bb": 0}, {"n": "HAPPY HALLOWEEN", "bb": 0}, {"n": "HOLIDAY SPIRITS", "bb": 0}, {"n": "HOTEL YETI-WAY", "bb": 0}, {"n": "HOUSE OF DOOM", "bb": 0},
-            {"n": "HUGO", "bb": 0}, {"n": "HUGO 2", "bb": 0}, {"n": "ICE JOKER", "bb": 0}, {"n": "IDOL OF FORTUNE", "bb": 0}, {"n": "IMMORTAL GUILD", "bb": 0}, {"n": "INFERNO STAR", "bb": 0},
-            {"n": "IRON GIRL", "bb": 0}, {"n": "ISHIN", "bb": 0}, {"n": "IT'S MAGIC", "bb": 0}, {"n": "JACKPOT POKER", "bb": 0}, {"n": "JADE MAGICIAN", "bb": 0}, {"n": "JEWEL BOX", "bb": 0},
-            {"n": "JOLLY ROGER", "bb": 0}, {"n": "JOLLY ROGER 2", "bb": 0}, {"n": "KISS REELS OF ROCK", "bb": 0}, {"n": "KNIGHT'S LIFE", "bb": 0}, {"n": "KRAKEN'S SKY", "bb": 0}, {"n": "LADY OF FORTUNE", "bb": 0},
-            {"n": "LEGACY OF EGYPT", "bb": 0}, {"n": "LEPRECHAUN GOES EGYPT", "bb": 0}, {"n": "LEPRECHAUN GOES HELL", "bb": 0}, {"n": "LEPRECHAUN GOES TO WILD", "bb": 0}, {"n": "LORD MERLIN", "bb": 0}, {"n": "LOVE IS IN THE AIR", "bb": 0},
-            {"n": "LUCKY DIAMONDS", "bb": 0}, {"n": "MADAME DESTINY", "bb": 0}, {"n": "MADAME DESTINY MEGAWAYS", "bb": 1}, {"n": "MAGICAL STACKS", "bb": 0}, {"n": "MAHJONG 88", "bb": 0}, {"n": "METAL DETECTOR", "bb": 0},
-            {"n": "MOUNTAIN OF WEALTH", "bb": 0}, {"n": "MUERTO EN MITLAN", "bb": 0}, {"n": "MULTIFRUIT 81", "bb": 0}, {"n": "MYSTERY JOKER 6000", "bb": 0}, {"n": "NINJA FRUITS", "bb": 0}, {"n": "NYX", "bb": 0},
-            {"n": "OCTOPUS TREASURE", "bb": 0}, {"n": "ODIN: PROTECTOR OF REALMS", "bb": 0}, {"n": "PAPYRUS", "bb": 0}, {"n": "PEARLS OF INDIA", "bb": 0}, {"n": "PERFECT GEMS", "bb": 0}, {"n": "PHOENIX REBORN", "bb": 0},
-            {"n": "PIGGY BANK", "bb": 0}, {"n": "PIXIES VS PIRATES", "bb": 0}, {"n": "PLANET FORTUNE", "bb": 0}, {"n": "PROSPERITY PALACE", "bb": 0}, {"n": "QUEEN'S DAY TILT", "bb": 0}, {"n": "RABBIT HOLE RICHES", "bb": 0},
-            {"n": "RAGING REX", "bb": 0}, {"n": "RAGING REX 2", "bb": 0}, {"n": "RAINBOW CHARMS", "bb": 0}, {"n": "REEL STEAL", "bb": 0}, {"n": "RISE OF DEAD", "bb": 0}, {"n": "RITUAL RESURRECTION", "bb": 0},
-            {"n": "ROCCO GALLO", "bb": 0}, {"n": "ROCK-N-ROLLA", "bb": 0}, {"n": "RONIN", "bb": 0}, {"n": "ROYAL MASQUERADE", "bb": 0}, {"n": "SABATON", "bb": 0}, {"n": "SAILS OF GOLD", "bb": 0},
-            {"n": "SAMURAI KEN", "bb": 0}, {"n": "SECRET OF THE STONES", "bb": 0}, {"n": "SINS", "bb": 0}, {"n": "SMILEY'S", "bb": 0}, {"n": "SPACE RACE", "bb": 0}, {"n": "SPARKY & SHORTZ", "bb": 0},
-            {"n": "SPEED CASH", "bb": 0}, {"n": "STAR BLAST", "bb": 0}, {"n": "STICKY JOKER", "bb": 0}, {"n": "STREET MAGIC", "bb": 0}, {"n": "SUPER FLIP", "bb": 0}, {"n": "SWORD AND THE GRAIL", "bb": 0},
-            {"n": "TALES OF ASGARD", "bb": 0}, {"n": "TEMPLE OF WEALTH", "bb": 0}, {"n": "TESTAMENT", "bb": 0}, {"n": "THAT'S RICH", "bb": 0}, {"n": "THE LAST SUNDOWN", "bb": 0}, {"n": "THE SWORD AND THE GRAIL", "bb": 0},
-            {"n": "THUNDER SCREECH", "bb": 0}, {"n": "TWISTED SISTER", "bb": 0}, {"n": "VIKING RUNECRAFT", "bb": 0}, {"n": "WILD BLOOD", "bb": 0}, {"n": "WILD BLOOD 2", "bb": 0}, {"n": "WILD FALLS", "bb": 0},
-            {"n": "WILD FRAMES", "bb": 0}, {"n": "WILD MELON", "bb": 0}, {"n": "WILD NORTH", "bb": 0}, {"n": "WIN-A-BEEST", "bb": 0}, {"n": "XMAS MAGIC", "bb": 0}
-        ]
-}
-
-PROVIDERS_DATA = {
-    "AGILA CLUB": DEFAULT_PROVIDERS_DATA,
-    "HAHA777": DEFAULT_PROVIDERS_DATA,
-    "JILIBET": DEFAULT_PROVIDERS_DATA,
-    "TIKLUCK": DEFAULT_PROVIDERS_DATA,
-    "BUGATTI PLAY": DEFAULT_PROVIDERS_DATA
-}
-SIGNALS = [
-    "🟢\n10 Normal Spins -> 30 Turbo Spins",
-    "🟡\n5 Quick Spins -> 15 Normal Spins",
-    "🔥\n30 Turbo Spins then Buy Bonus",
-    "🚀\n10 Turbo Spins -> 10 Quick Spins -> 5 Normal Spins then Buy Bonus",
-    "💎\n20 Normal Spins then Add 1 peso bet and Buy Bonus",
-    "⚡\n50 Turbo Spins (Low Stake)",
-    "⭐\n8 Normal Spins -> 15 Quick Spins -> 10 Turbo Spins",
-    "🍀\n7 Normal Spins -> 7 Turbo Spins -> 7 Quick Spins then Buy Bonus",
-    "🎰\n15 Normal Spins -> 20 Turbo Spins -> 5 Quick Spins",
-    "🎡\n12 Quick Spins -> 12 Normal Spins -> 12 Turbo Spins",
-    "🌊\n25 Turbo Spins -> 10 Normal Spins",
-    "🌋\n5 Normal Spins -> 5 Quick Spins -> 5 Turbo Spins -> Buy Bonus",
-    "🌙\n40 Turbo Spins (Medium Stake)",
-    "☀️\n10 Normal Spins -> 10 Turbo Spins -> 10 Quick Spins",
-    "🐉\n18 Turbo Spins -> 12 Normal Spins",
-    "🦁\n30 Quick Spins",
-    "🐍\n9 Normal Spins -> 18 Turbo Spins -> 9 Quick Spins",
-    "🦅\n15 Turbo Spins -> 15 Quick Spins",
-    "🦄\n22 Normal Spins -> 11 Turbo Spins",
-    "🌈\n7 Turbo Spins -> 7 Normal Spins -> 7 Quick Spins -> 7 Turbo Spins",
-    "⚡\n50 Quick Spins",
-    "❄️\n20 Turbo Spins -> 20 Normal Spins",
-    "🌵\n10 Quick Spins -> 20 Turbo Spins",
-    "🏰\n15 Normal Spins -> 15 Turbo Spins",
-    "🏴‍☠️\n30 Turbo Spins -> Buy Bonus",
-    "🛸\n10 Turbo Spins -> 10 Quick Spins -> 10 Normal Spins",
-    "🧪\n5 Normal Spins -> 10 Turbo Spins -> 15 Quick Spins",
-    "🥊\n20 Quick Spins -> 10 Turbo Spins",
-    "🏎️\n60 Turbo Spins",
-    "🏹\n12 Normal Spins -> 24 Turbo Spins",
-    "🕯️\n15 Quick Spins -> 15 Normal Spins",
-    "💎\n10 Turbo Spins -> 10 Quick Spins -> 10 Normal Spins -> Buy Bonus",
-    "🍒\n20 Normal Spins -> 10 Turbo Spins",
-    "🍋\n30 Quick Spins",
-    "🍇\n15 Turbo Spins -> 15 Quick Spins",
-    "🍉\n25 Normal Spins",
-    "🔔\n10 Normal Spins -> 20 Turbo Spins",
-    "🃏\n15 Quick Spins -> 15 Turbo Spins",
-    "👑\n5 Normal Spins -> 5 Quick Spins -> 5 Turbo Spins -> 5 Normal Spins",
-    "💰\n40 Turbo Spins",
-    "🏦\n20 Quick Spins -> 20 Turbo Spins",
-    "💎\n10 Normal Spins -> 30 Quick Spins",
-    "🕵️\n15 Turbo Spins -> 15 Normal Spins",
-    "🧙\n10 Quick Spins -> 10 Turbo Spins -> 10 Normal Spins",
-    "🧚\n25 Turbo Spins",
-    "🧜\n12 Normal Spins -> 12 Quick Spins",
-    "🧞\n30 Turbo Spins -> Buy Bonus",
-    "🧛\n20 Quick Spins -> 10 Normal Spins",
-    "🐺\n15 Turbo Spins -> 15 Quick Spins -> 15 Normal Spins",
-    "🦊\n15 Normal Spins -> 15 Turbo Spins -> 15 Quick Spins",
-    "🔥\n10 Normal Spins -> 20 Quick Spins -> Buy Bonus",
-    "💎\n30 Quick Spins -> Buy Bonus",
-    "🚀\n15 Normal Spins -> Buy Bonus",
-    "🌀\n15 Turbo Spins -> 15 Normal Spins",
-    "🌌\n20 Quick Spins -> 10 Turbo Spins -> 20 Normal Spins",
-    "⚡\n35 Turbo Spins -> 5 Quick Spins",
-    "🌪️\n10 Normal -> 20 Quick -> 10 Turbo",
-    "☄️\n45 Turbo Spins",
-    "🌠\n8 Normal -> 8 Quick -> 8 Turbo -> 8 Normal",
-    "🌊\n25 Quick Spins -> 25 Turbo Spins",
-    "🔥\n15 Normal -> 30 Turbo",
-    "🧊\n30 Quick -> 10 Normal",
-    "🍃\n50 Normal Spins (Low Stake)",
-    "🎍\n12 Quick -> 12 Turbo -> 12 Normal",
-    "🎋\n20 Turbo -> 20 Quick",
-    "🏮\n15 Normal -> 15 Quick -> 15 Turbo",
-    "⛩️\n33 Turbo Spins",
-    "🧧\n10 Normal -> 10 Quick -> 10 Turbo -> 10 Normal",
-    "🏯\n40 Quick Spins",
-    "🎴\n18 Turbo -> 18 Normal",
-    "🎏\n22 Quick -> 11 Turbo",
-    "🏔️\n10 Normal -> 40 Turbo",
-    "🌋\n30 Quick -> 30 Turbo",
-    "🏜️\n15 Normal -> 15 Turbo -> 15 Quick",
-    "🏝️\n25 Turbo -> 25 Normal",
-    "🏞️\n20 Quick -> 20 Normal",
-    "🌉\n12 Turbo -> 12 Quick -> 12 Normal -> 12 Turbo",
-    "🌃\n55 Turbo Spins",
-    "🏙️\n15 Quick -> 45 Turbo",
-    "🎡\n10 Normal -> 10 Quick -> 10 Turbo -> 10 Quick -> 10 Normal",
-    "🎠\n30 Normal -> 30 Quick",
-    "🎢\n20 Turbo -> 10 Quick -> 20 Turbo",
-    "🚂\n50 Turbo Spins",
-    "🌙\n20 Normal Spins -> 10 Turbo Spins -> 15 Quick Spins",
-    "🐅\n8 Turbo Spins -> 12 Quick Spins -> 8 Turbo Spins -> 8 Normal Spins",
-    "🦅\n14 Normal Spins -> 28 Turbo Spins",
-    "🦂\n30 Quick Spins -> 20 Normal Spins -> Buy Bonus",
-    "💎\n16 Turbo Spins -> 16 Normal Spins",
-    "🌋\n25 Normal Spins -> 25 Turbo Spins",
-    "🌲\n10 Turbo Spins -> 15 Normal Spins -> 20 Quick Spins",
-    "🍃\n35 Quick Spins -> 15 Normal Spins",
-    "🐘\n5 Normal Spins -> 15 Quick Spins -> 25 Turbo Spins -> 5 Normal Spins",
-    "🦈\n40 Turbo Spins -> 10 Normal Spins",
-    "🐙\n18 Quick Spins -> 18 Turbo Spins",
-    "🐉\n12 Normal Spins -> 24 Turbo Spins -> 12 Quick Spins",
-    "🐼\n20 Normal Spins -> 20 Quick Spins",
-    "🍀\n7 Turbo Spins -> 14 Quick Spins -> 21 Normal Spins",
-    "🌈\n30 Turbo Spins -> 30 Normal Spins",
-    "⚡\n15 Quick Spins -> 15 Normal Spins -> 15 Turbo Spins",
-    "🚂\n50 Quick Spins",
-    "🚀\n22 Turbo Spins -> 11 Normal Spins",
-    "🌍\n10 Normal Spins -> 30 Quick Spins -> 10 Turbo Spins",
-    "🌠\n45 Turbo Spins (Medium Stake)",
-    "🌞\n20 Quick Spins -> 10 Normal Spins -> 20 Turbo Spins",
-    "🦇\n30 Normal Spins",
-    "🕸️\n15 Turbo Spins -> 30 Normal Spins",
-    "🔮\n5 Quick Spins -> 5 Turbo Spins -> 5 Normal Spins -> Buy Bonus",
-    "🧪\n12 Normal Spins -> 12 Turbo Spins -> 12 Quick Spins -> 12 Normal Spins",
-    "🗝️\n40 Normal Spins",
-    "🧲\n18 Turbo Spins -> 18 Quick Spins -> 18 Normal Spins",
-    "🎭\n25 Turbo Spins -> 25 Normal Spins",
-    "🎩\n10 Quick Spins -> 20 Turbo Spins",
-    "🃏\n15 Normal Spins -> 10 Quick Spins -> 15 Turbo Spins",
-    "🏰\n20 Normal Spins -> 20 Turbo Spins",
-    "👑\n50 Normal Spins -> Buy Bonus",
-    "🏹\n30 Quick Spins -> 30 Normal Spins",
-    "⚔️\n15 Turbo Spins -> 15 Normal Spins -> Buy Bonus",
-    "🛡️\n40 Turbo Spins -> 20 Normal Spins",
-    "🏺\n10 Normal Spins -> 10 Turbo Spins -> 10 Normal Spins -> 10 Quick Spins",
-    "🏛️\n25 Turbo Spins -> 15 Quick Spins -> 10 Normal Spins",
-    "📜\n20 Quick Spins -> 40 Normal Spins",
-    "🐪\n15 Normal Spins -> 30 Quick Spins",
-    "🐍\n10 Turbo Spins -> 5 Quick Spins -> 15 Normal Spins -> 10 Turbo Spins",
-    "🦂\n45 Normal Spins",
-    "🦜\n12 Quick Spins -> 24 Normal Spins",
-    "🦍\n30 Turbo Spins -> 10 Quick Spins -> 10 Normal Spins",
-    "🐊\n20 Normal Spins -> 15 Turbo Spins -> 5 Quick Spins -> 10 Normal Spins",
-    "🦓\n15 Turbo Spins -> 15 Quick Spins -> 30 Normal Spins",
-    "🦒\n35 Normal Spins -> 15 Turbo Spins",
-    "🐘\n25 Quick Spins -> 25 Normal Spins",
-    "🚙\n10 Normal Spins -> 20 Turbo Spins -> 30 Quick Spins",
-    "🧭\n16 Normal Spins -> 16 Turbo Spins -> 16 Quick Spins",
-    "🗺️\n8 Quick Spins -> 8 Normal Spins -> 8 Turbo Spins -> 8 Normal Spins"
-]
+# Dynamic PROVIDERS_DATA and SIGNALS are loaded from dashboard configuration above.
 
 # ================= ANIMATION LOGIC =================
 def system_startup_animation(chat_id, message_id):
@@ -1381,96 +591,7 @@ def reset_animation(chat_id, message_id):
             time.sleep(0.5)
         except: pass
 
-def display_provider_games(chat_id, uid, provider_name):
-    user_sessions[uid]["provider"] = provider_name
-    display_games = PROVIDERS_DATA.get(provider_name, [])
-
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add(types.KeyboardButton("🔙 BACK"))
-    kb.add(*[types.KeyboardButton(g) for g in display_games])
-
-    msg = bot.send_message(chat_id, f"🎰 <b>{provider_name}</b>\nShowing {len(display_games)} Games Available:", reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
-
-def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_id):
-    inline_kb = types.InlineKeyboardMarkup(row_width=1)
-    inline_kb.add(
-        types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"),
-        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
-        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
-        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
-        types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
-    )
-
-    try:
-        res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-        init_telemetry = (
-            f"{res_text}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ <b>RNG SYNCHRONIZATION ACTIVE:</b>\n"
-            f"<code>[SYS_SYNC] >> INITIATING PLATFORM HANDSHAKE...</code>"
-        )
-        bot.edit_message_text(
-            init_telemetry, 
-            chat_id, message_id, parse_mode="HTML", reply_markup=inline_kb
-        )
-    except: pass
-    time.sleep(1.2)
-
-    safe_casino = html.escape(str(selected_casino))
-    frames = [
-        (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[GATEWAY] >> CONNECTED TO {safe_casino.upper()}</code>\n"
-            f"<code>[LATENCY] >> 11ms · JITTER: 0.1ms</code>\n"
-            f"<code>[METER]   [■■■■■■■■■■] 100% ONLINE</code>"
-        ),
-        (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[RNG_SEED]>> DYNAMIC ENTROPY STREAMING</code>\n"
-            f"<code>[VOLAT]   >> SURGE COEFFICIENT: OPTIMAL (x1.42)</code>\n"
-            f"<code>[STATUS]  >> PATTERN TIME-LOCKED TO SESSION</code>"
-        ),
-        (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[MONITOR] >> LIVE RTP PEAK DETECTED</code>\n"
-            f"<code>[WINDOW]  >> VALIDATION RUNNING · DO NOT REFRESH</code>\n"
-            f"<code>[SIGNAL]  >> READY FOR EXECUTION</code>"
-        )
-    ]
-    
-    for frame in frames:
-        if uid not in user_sessions or user_sessions[uid].get("encoding") == False or user_sessions[uid].get("encoding_id") != session_id:
-            break
-        try:
-            res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=f"{res_text}\n\n━━━━━━━━━━━━━━━━━━━━━━\n{frame}",
-                parse_mode="HTML"
-            )
-        except Exception:
-            break 
-        time.sleep(1.2)
-
-    if uid in user_sessions and user_sessions[uid].get("encoding_id") == session_id:
-        user_sessions[uid]["encoding"] = False
-        res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-        final_footer = (
-            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
-            f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
-            f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
-        )
-        try:
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=f"{res_text}\n\n━━━━━━━━━━━━━━━━━━━━━━\n{final_footer}",
-                parse_mode="HTML",
-                reply_markup=inline_kb
-            )
-        except: pass
+# Authoritative display_provider_games and live_encoding_animation defined below.
 
 
 # ================= HELPERS =================
@@ -1671,10 +792,9 @@ def agilaclub_cmd(message):
             selected_casino = c
             break
     if selected_casino in DISABLED_CASINOS:
-        active_casinos = [c for c in CASINO_DATA.keys() if c not in DISABLED_CASINOS]
-        if active_casinos:
-            selected_casino = active_casinos[0]
-            
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
+
     user_sessions[uid]["casino"] = selected_casino
     
     # Show SYSTEM CHECK animation
@@ -1750,6 +870,7 @@ def start_cmd(message):
 @bot.callback_query_handler(func=lambda c: c.data == "how_to_use")
 def handle_how_to_use(call):
     uid = call.from_user.id
+    ensure_session(uid)
     try: bot.delete_message(call.message.chat.id, call.message.message_id)
     except: pass
     delete_user_past_msg(call.message.chat.id, uid)
@@ -1810,6 +931,7 @@ def back_to_home(call):
 @bot.callback_query_handler(func=lambda c: c.data == "user_login")
 def handle_user_login(call):
     uid = call.from_user.id
+    ensure_session(uid)
     try: bot.delete_message(call.message.chat.id, call.message.message_id)
     except: pass
     delete_user_past_msg(call.message.chat.id, uid)
@@ -1818,7 +940,7 @@ def handle_user_login(call):
     
     kb = types.InlineKeyboardMarkup(row_width=1)
     kb.add(
-        types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/slotpatternbot/winrate"),
+        types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/PatternReaderbot/winrate"),
         types.InlineKeyboardButton("🚀 PROCEED TO SYSTEM", callback_data="user_login_proceed"),
         types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home")
     )
@@ -1835,6 +957,7 @@ def handle_user_login(call):
 @bot.callback_query_handler(func=lambda c: c.data == "user_login_proceed")
 def handle_user_login_proceed(call):
     uid = call.from_user.id
+    ensure_session(uid, default_logged_in=True)
     user_sessions[uid]["is_logged_in"] = True
     
     teleclaw_thinking(call.message.chat.id, "Working", duration=2, call_id=call.id)
@@ -1850,7 +973,7 @@ def handle_user_login_proceed(call):
     choose_casino_platform(call)
 
 @bot.callback_query_handler(func=lambda c: c.data == "intro_proceed")
-def choose_casino_platform(target):
+def choose_casino_platform(target, notice_text=None):
     if hasattr(target, "message"):
         chat_id = target.message.chat.id
         uid = target.from_user.id
@@ -1862,10 +985,8 @@ def choose_casino_platform(target):
     else:
         return
 
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True}
-    else:
-        user_sessions[uid]["is_logged_in"] = True
+    ensure_session(uid, default_logged_in=True)
+    user_sessions[uid]["is_logged_in"] = True
 
     delete_user_past_msg(chat_id, uid)
 
@@ -1875,57 +996,31 @@ def choose_casino_platform(target):
 
     teleclaw_thinking(chat_id, "Working", duration=1)
 
-    kb = types.InlineKeyboardMarkup()
-    layouts = {"AGILA CLUB":1,"HAHA777":2,"JILIBET":1,"TIKLUCK":2,"BUGATTI PLAY":1}
-    
-    current_row = []
-    current_row_max = 1
-    
-    for casino in CASINO_DATA.keys():
-        layout_cols = layouts.get(casino, 1)
-        if layout_cols not in [1, 2, 3]:
-            layout_cols = 1
-        btn = types.InlineKeyboardButton(f"🏛 {casino}", callback_data=f"set_casino_{casino}")
-        
-        if not current_row:
-            current_row.append(btn)
-            current_row_max = layout_cols
-            if len(current_row) >= current_row_max:
-                kb.row(*current_row)
-                current_row = []
-                current_row_max = 1
-        else:
-            if layout_cols == current_row_max and len(current_row) < current_row_max:
-                current_row.append(btn)
-                if len(current_row) >= current_row_max:
-                    kb.row(*current_row)
-                    current_row = []
-                    current_row_max = 1
-            else:
-                kb.row(*current_row)
-                current_row = [btn]
-                current_row_max = layout_cols
-                if len(current_row) >= current_row_max:
-                    kb.row(*current_row)
-                    current_row = []
-                    current_row_max = 1
-    
-    if current_row:
-        kb.row(*current_row)
-    
-    kb.add(types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home"))
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    cas_btns = [types.InlineKeyboardButton(f"🏛 {casino}", callback_data=f"set_casino_{casino}") for casino in CASINO_DATA.keys()]
+    for i in range(0, len(cas_btns), 2):
+        kb.row(*cas_btns[i:i+2])
+    kb.row(types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home"))
 
-    msg = bot.send_message(chat_id, "🏗 <b>SELECT PLATFORM DATABASE</b>\n━━━━━━━━━━━━━━━━━━━━━━\nChoose your Casino Platform to load the correct RNG configuration:", reply_markup=kb, parse_mode="HTML")
+    header_prefix = f"{notice_text}\n\n" if notice_text else ""
+    msg_text = (
+        f"{header_prefix}"
+        "🏗 <b>SELECT PLATFORM DATABASE</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Choose your Casino Platform to load the correct RNG configuration:"
+    )
+    msg = bot.send_message(chat_id, msg_text, reply_markup=kb, parse_mode="HTML")
     user_sessions[uid]["last_msg"] = msg.message_id
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_casino_"))
 def confirm_casino_selection(call):
     uid = call.from_user.id
+    ensure_session(uid, default_logged_in=True)
     selected_casino = call.data.replace("set_casino_", "")
 
     if selected_casino in DISABLED_CASINOS:
         try:
-            bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
+            bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
         except:
             pass
         return
@@ -1966,17 +1061,29 @@ def confirm_casino_selection(call):
 
 # show_pattern moved to App.tsx
 
-@bot.message_handler(func=lambda m: m.text in ["🔄 Re-Generate Pattern", "🔄 RE-SYNC RNG DATA", "🔄 Re-Sync RNG Data"])
 def regenerate_btn(message):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
+    if user_sessions[uid].get("casino") in DISABLED_CASINOS:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
     chat_id = message.chat.id
+    if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 15:
+        bot.send_message(chat_id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...")
+        return
+    user_sessions[uid]["is_resync"] = True
     msg = bot.send_message(chat_id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
     run_gen_logic(chat_id, msg.message_id, message.from_user, user_sessions[uid].get("casino", "UNKNOWN"), user_sessions[uid].get("game", "UNKNOWN"), user_sessions[uid].get("provider", "UNKNOWN"))
-
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_game")
 def change_game_callback(call):
     uid = call.from_user.id
+    ensure_session(uid, default_logged_in=True)
+    if user_sessions[uid].get("casino") in DISABLED_CASINOS:
+        try: bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
+        except: pass
+        choose_casino_platform(call)
+        return
     provider = user_sessions[uid].get("provider")
     if not provider:
         bot.answer_callback_query(call.id, "⚠️ Provider not found!", show_alert=True)
@@ -1991,6 +1098,7 @@ def change_game_callback(call):
 @bot.callback_query_handler(func=lambda c: c.data == "change_platform")
 def change_platform_callback(call):
     uid = call.from_user.id
+    ensure_session(uid, default_logged_in=True)
     user_sessions[uid]["encoding"] = False
     user_sessions[uid]["encoding_id"] = None
     
@@ -1999,176 +1107,62 @@ def change_platform_callback(call):
     time.sleep(0.5)
     
     # Clear session but keep logged in
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True}
+    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_resync": False}
     choose_casino_platform(call)
 
 @bot.callback_query_handler(func=lambda c: c.data == "reset_system")
 def reset_system_callback(call):
     uid = call.from_user.id
+    ensure_session(uid, default_logged_in=True)
     
     # Reset animation
     reset_animation(call.message.chat.id, call.message.message_id)
     time.sleep(0.5)
     
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True}
+    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_resync": False}
     choose_casino_platform(call)
 
 @bot.callback_query_handler(func=lambda c: c.data == "open_menu")
 def trigger_menu(call):
     uid = call.from_user.id
+    ensure_session(uid, default_logged_in=True)
+    if user_sessions[uid].get("casino") in DISABLED_CASINOS:
+        try: bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
+        except: pass
+        choose_casino_platform(call)
+        return
     delete_user_past_msg(call.message.chat.id, uid)
     
     # SYSTEM CHECK ANIMATION
     msg = bot.send_message(call.message.chat.id, "⚙️ <b>SYSTEM CHECK...</b>", parse_mode="HTML")
     system_startup_animation(call.message.chat.id, msg.message_id)
-    bot.delete_message(call.message.chat.id, msg.message_id)
+    try: bot.delete_message(call.message.chat.id, msg.message_id)
+    except: pass
     
     main_menu(call.message.chat.id, uid)
-
-# Old show_games removed
-
-@bot.message_handler(func=lambda m: m.text == "🔙 BACK")
-def back_to_prov(message): 
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    main_menu(message.chat.id, message.from_user.id)
-
-# Old pick_game removed
-
-def run_gen_logic(chat_id, message_id, user_obj, casino, game, provider):
-    uid = user_obj.id if hasattr(user_obj, 'id') else user_obj
-    if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 20:
-        bot.send_message(chat_id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...")
-        return
-
-    user_sessions[uid]["last_gen_time"] = time.time()
-    
-    # NOTIFY ADMIN OF GENERATION
-    try:
-        admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-        if admin_id_val:
-            name = ""
-            username = ""
-            if hasattr(user_obj, 'first_name'):
-                name = user_obj.first_name + (f" {user_obj.last_name}" if user_obj.last_name else "")
-                username = f" (@{user_obj.username})" if user_obj.username else ""
-            bot.send_message(admin_id_val, f"📊 <b>SIGNAL GENERATED</b>\nUser: {name}{username} (<code>{uid}</code>)\n🏛 <b>Casino:</b> {casino}\n🎮 <b>Provider:</b> {provider}\n🎰 <b>Game:</b> {game}", parse_mode="HTML")
-    except: pass
-
-    # 4-STAGE REALISTIC VIP TELEMETRY ANIMATION
-    stages = [
-        {
-            "title": "⚡ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>UPLINK</code>",
-            "log": "[UPLINK] >> CONNECTING [TLS v1.3]",
-            "detail": "[CIPHER] >> TLS_AES_256_GCM_SHA384",
-            "percent": 15,
-            "ping": "12ms PING"
-        },
-        {
-            "title": "🧬 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>SEED SYNC</code>",
-            "log": f"[SERVER] >> {html.escape(str(casino)).upper()} RNG FOUND",
-            "detail": f"[SEED]   >> 0x{str(uuid.uuid4())[:8].upper()}... [DECODED]",
-            "percent": 48,
-            "ping": "ANALYZING"
-        },
-        {
-            "title": "🛰 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>NEURAL FIT</code>",
-            "log": f"[TARGET] >> {html.escape(str(game)).upper()} ({html.escape(str(provider))})",
-            "detail": "[CYCLES] >> HIT FREQUENCY CALIBRATED",
-            "percent": 82,
-            "ping": "COMPUTING"
-        },
-        {
-            "title": "✅ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>LOCKED</code>",
-            "log": "[STATUS] >> HIGH VOLATILITY INJECTION READY",
-            "detail": "[STREAM] >> DEPLOYING SIGNAL PATTERN",
-            "percent": 100,
-            "ping": "READY"
-        }
-    ]
-
-    for stage in stages:
-        meter = render_meter(stage["percent"], 10)
-        status_text = (
-            f"{stage['title']}\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"<code>{stage['log']}</code>\n"
-            f"<code>{stage['detail']}</code>\n"
-            f"<code>[{meter}] {stage['percent']}% · {stage['ping']}</code>"
-        )
-        try:
-            bot.edit_message_text(status_text, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.75)
-        except: pass
-
-    try: bot.delete_message(chat_id, message_id)
-    except: pass
-
-    # Delete last generated messages
-    if user_sessions[uid].get("last_msg"):
-        try: bot.delete_message(chat_id, user_sessions[uid]["last_msg"])
-        except: pass
-    if user_sessions[uid].get("last_kb_msg"):
-        try: bot.delete_message(chat_id, user_sessions[uid]["last_kb_msg"])
-        except: pass
-
-    ph_now = datetime.utcnow() + timedelta(hours=8)
-    v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
-
-    fake_id = str(uuid.uuid4())[:8].upper()
-
-    if "PG" in provider.upper():
-        valid_signals = [s for s in SIGNALS if "Turbo" not in s]
-    else:
-        valid_signals = SIGNALS
-    
-    if not valid_signals:
-        valid_signals = SIGNALS
-    
-    prob_val = random.uniform(96.5, 99.4)
-    result_text = format_cyber_box(game, casino, provider, prob_val, fake_id, v_until)
-
-    user_sessions[uid]["result_text"] = result_text
-    user_sessions[uid]["pattern"] = random.choice(valid_signals)
-    user_sessions[uid]["encoding"] = True 
-    session_id = str(uuid.uuid4())
-    user_sessions[uid]["encoding_id"] = session_id
-    
-    # Inline buttons for everything
-    inline_kb = types.InlineKeyboardMarkup(row_width=1)
-    inline_kb.add(
-        types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"),
-        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
-        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
-        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
-        types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
-    )
-    
-    # Remove any lingering ReplyKeyboardMarkup
-    remove_kb = types.ReplyKeyboardRemove()
-    
-    # Send message with all inline buttons and remove old keyboard
-    msg = bot.send_message(chat_id, result_text, reply_markup=inline_kb, parse_mode="HTML")
-    
-    # Send a hidden message to remove the keyboard, then delete it
-    del_msg = bot.send_message(chat_id, "⚙️ Updating controls...", reply_markup=remove_kb)
-    try: bot.delete_message(chat_id, del_msg.message_id)
-    except: pass
-    
-    user_sessions[uid]["last_msg"] = msg.message_id
-    user_sessions[uid]["last_kb_msg"] = None
-
-    # Start the live encoding animation thread
-    t = threading.Thread(target=live_encoding_animation, args=(chat_id, msg.message_id, uid, casino, session_id))
-    t.daemon = True
-    t.start()
 
 @bot.callback_query_handler(func=lambda c: c.data == "run_gen")
 def run_gen(call):
     uid = call.from_user.id
+    ensure_session(uid, default_logged_in=True)
     chat_id = call.message.chat.id
+
+    if user_sessions[uid].get("casino") in DISABLED_CASINOS:
+        try: bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
+        except: pass
+        choose_casino_platform(call)
+        return
+
+    if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 15:
+        try:
+            bot.answer_callback_query(call.id, "⚠️ SYSTEM BUSY. Pattern is still active. Please wait a few seconds.", show_alert=True)
+        except: pass
+        return
+
+    try: bot.answer_callback_query(call.id)
+    except: pass
     
-    # User requested: Delete both the Reader card and the Injection Pattern card when re-syncing!
+    # Delete both the Reader card and the Injection Pattern card when re-syncing
     old_last_msg = user_sessions.get(uid, {}).get("last_msg")
     old_pattern_msg = user_sessions.get(uid, {}).get("last_pattern_msg_id")
     
@@ -2184,12 +1178,10 @@ def run_gen(call):
         except:
             pass
             
-    if uid in user_sessions:
-        user_sessions[uid]["last_msg"] = None
-        user_sessions[uid]["last_pattern_msg_id"] = None
+    user_sessions[uid]["last_msg"] = None
+    user_sessions[uid]["last_pattern_msg_id"] = None
+    if call.message and ("INJECTION" in (call.message.text or "") or "READER" in (call.message.text or "")):
         user_sessions[uid]["is_resync"] = True
-    else:
-        user_sessions[uid] = {"last_msg": None, "last_pattern_msg_id": None, "is_resync": True}
 
     msg = bot.send_message(chat_id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
     message_id = msg.message_id
@@ -2289,7 +1281,7 @@ def winrate_cmd(message):
     try:
         kb = types.InlineKeyboardMarkup(row_width=1)
         kb.add(
-            types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/slotpatternbot/winrate")
+            types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/PatternReaderbot/winrate")
         )
         caption = (
             "📊 <b>REAL-TIME SEED ACCURACY AUDIT</b>\n"
@@ -2320,10 +1312,9 @@ def howtouse_cmd(message):
 def send_topgames_casinos_menu(message):
     try:
         kb = types.InlineKeyboardMarkup(row_width=2)
-        buttons = []
-        for casino in CASINO_DATA.keys():
-            buttons.append(types.InlineKeyboardButton(text=f"🎰 {casino}", callback_data=f"tgcas:{casino}"))
-        kb.add(*buttons)
+        buttons = [types.InlineKeyboardButton(text=f"🎰 {casino}", callback_data=f"tgcas:{casino}") for casino in CASINO_DATA.keys()]
+        for i in range(0, len(buttons), 2):
+            kb.row(*buttons[i:i+2])
         bot.send_message(message.chat.id, "🔥 <b>TOP 10 GAMES MENU</b> 🔥\n\nPumili ng Casino platform upang makita ang Top 10 recommended winning games:", parse_mode="HTML", reply_markup=kb)
     except Exception as e:
         print(f"Error in topgames menu: {e}")
@@ -2334,7 +1325,7 @@ def handle_topgames_casino_select(call):
         matched_casino = call.data.split("tgcas:")[1]
         if matched_casino in DISABLED_CASINOS:
             try:
-                bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
+                bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
             except: pass
             return
 
@@ -2370,7 +1361,7 @@ def handle_topgames(message):
             return
 
         if matched_casino in DISABLED_CASINOS:
-            bot.send_message(message.chat.id, "Casino Platform you selected is not working right now, please select another casino platform.", parse_mode="HTML")
+            choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
             return
             
         cached_games = get_or_generate_top_games(matched_casino)
@@ -2411,65 +1402,28 @@ def help_cmd(message):
 
 
 
-# ================= OVERRIDDEN LOGIC FOR MULTI-CASINO PROVIDERS =================
-def render_meter(percent, length=8):
-    try:
-        filled = int(round((float(percent) / 100.0) * length))
-    except:
-        filled = 7
-    filled = max(0, min(length, filled))
-    return "■" * filled + "□" * (length - filled)
+# ================= MULTI-CASINO PROVIDER & SIGNAL ENGINE =================
 
-def format_cyber_box(game, casino, provider, prob, fake_id, v_until, direct_pattern=None):
-    safe_game = html.escape(str(game))
-    safe_casino = html.escape(str(casino))
-    safe_prov = html.escape(str(provider))
-    meter = render_meter(prob, 8)
-    prob_str = f"{prob:.2f}%"
-    
-    box_lines = [
-        "┌── PLATFORM DATA",
-        f"│ TARGET   : {safe_game}",
-        f"│ CASINO   : {safe_casino}",
-        f"│ PROVIDER : {safe_prov}",
-        f"│ ACCURACY : {prob_str}",
-        f"│ METER    : [{meter}]",
-        f"│ VOLATILE : HIGH [SURGE PEAK]",
-        f"│ VALID TO : {v_until}",
-        "└──"
-    ]
-    box_text = "\n".join(box_lines)
-    
-    if direct_pattern:
-        pattern_box, badge_emoji = format_pattern_code(direct_pattern)
-        emoji_line = f"{badge_emoji}\n" if badge_emoji else ""
-        text = (
-            f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"<pre>{box_text}</pre>\n"
-            f"📋 <b>INJECTION PATTERN VERIFIED:</b>\n"
-            f"{emoji_line}{pattern_box}\n"
-            f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang injection sequence bago matapos ang expiration window.</blockquote>"
-        )
-    else:
-        text = (
-            f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> <code>#{fake_id}</code>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"<pre>{box_text}</pre>\n"
-            f"<blockquote>💎 <b>INJECTION PROTOCOL:</b>\n"
-            f"Pindutin ang <b>REVEAL INJECTION PATTERN</b> para sa eksaktong spin sequence.</blockquote>"
-        )
-    return text
+def _open_casino_selector(chat_id, uid, notice_text=None):
+    class _TargetMsg:
+        def __init__(self, cid, user_id):
+            self.chat = type("ChatObj", (), {"id": cid})()
+            self.from_user = type("UserObj", (), {"id": user_id})()
+    choose_casino_platform(_TargetMsg(chat_id, uid), notice_text=notice_text)
 
 def display_provider_games(chat_id, uid, provider_name):
-    user_sessions[uid]["provider"] = provider_name
+    ensure_session(uid, default_logged_in=True)
     selected_casino = user_sessions[uid].get("casino")
+    if not selected_casino or selected_casino in DISABLED_CASINOS:
+        notice = f"⚠️ <b>{DISABLED_CASINO_MSG}</b>" if selected_casino in DISABLED_CASINOS else None
+        _open_casino_selector(chat_id, uid, notice_text=notice)
+        return
+    user_sessions[uid]["provider"] = provider_name
     games_list = PROVIDERS_DATA.get(selected_casino, {}).get(provider_name, [])
-    # games_list is now a list of dicts like {"n": "Game", "bb": 1}
-    display_names = [g["n"] for g in games_list]
+    display_names = [g["n"] if isinstance(g, dict) else str(g) for g in games_list]
 
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    kb.add(types.KeyboardButton("🔙 BACK TO PROVIDERS"))
+    kb.add(types.KeyboardButton("🔙 BACK TO PROVIDERS"), types.KeyboardButton("🔙 BACK TO CASINOS"))
     kb.add(*[types.KeyboardButton(n) for n in display_names])
 
     msg = bot.send_message(chat_id, f"🎰 <b>{html.escape(provider_name)}</b>\nShowing {len(display_names)} Games Available:", reply_markup=kb, parse_mode="HTML")
@@ -2477,45 +1431,53 @@ def display_provider_games(chat_id, uid, provider_name):
 
 def back_to_providers_reply(message):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
     delete_user_past_msg(message.chat.id, uid)
+    if user_sessions[uid].get("casino") in DISABLED_CASINOS:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
     main_menu(message.chat.id, uid)
 
 def main_menu(chat_id, uid):
+    ensure_session(uid, default_logged_in=True)
     delete_user_past_msg(chat_id, uid)
     
     selected_casino = user_sessions[uid].get("casino")
+    if not selected_casino or selected_casino in DISABLED_CASINOS:
+        notice = f"⚠️ <b>{DISABLED_CASINO_MSG}</b>" if selected_casino in DISABLED_CASINOS else None
+        _open_casino_selector(chat_id, uid, notice_text=notice)
+        return
     providers_list = list(PROVIDERS_DATA.get(selected_casino, {}).keys())
     
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add(types.KeyboardButton("🔙 BACK TO CASINOS"))
     kb.add(*[types.KeyboardButton(p) for p in providers_list])
     msg = bot.send_message(chat_id, "⚙️ <b>MAIN CONTROL PANEL:</b>\n━━━━━━━━━━━━━━━━━━━━━━\nSelect your preferred Slot Provider to begin analysis:", reply_markup=kb, parse_mode="HTML")
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": selected_casino}
     user_sessions[uid]["last_msg"] = msg.message_id
     user_sessions[uid]["encoding"] = False
 
 def back_to_casinos_handler(message):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
     delete_user_past_msg(message.chat.id, uid)
-    # Reset casino and go back
     user_sessions[uid]["casino"] = None
-    
-    # We simulate a "call" object for choose_casino_platform
-    class FakeCall:
-        def __init__(self, m):
-            self.message = m
-            self.from_user = m.from_user
-    
-    choose_casino_platform(FakeCall(message))
+    choose_casino_platform(message)
 
 def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
-    uid = user_obj.id
+    uid = user_obj.id if hasattr(user_obj, "id") else user_obj
+    ensure_session(uid, default_logged_in=True)
+    if casino in DISABLED_CASINOS:
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
+        _open_casino_selector(chat_id, uid, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
     if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 15:
+        try: bot.delete_message(chat_id, message_id)
+        except: pass
         bot.send_message(chat_id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...")
         return
 
@@ -2571,9 +1533,9 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
     # Notify Admin
     try:
         admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-        if admin_id_val:
-            name = user_obj.first_name + (f" {user_obj.last_name}" if user_obj.last_name else "")
-            username = f" (@{user_obj.username})" if user_obj.username else ""
+        if admin_id_val and hasattr(user_obj, "first_name"):
+            name = user_obj.first_name + (f" {user_obj.last_name}" if getattr(user_obj, "last_name", None) else "")
+            username = f" (@{user_obj.username})" if getattr(user_obj, "username", None) else ""
             bot.send_message(admin_id_val, f"📊 <b>SIGNAL GENERATED</b>\nUser: {name}{username} (<code>{uid}</code>)\n🏛 <b>Casino:</b> {casino}\n🎮 <b>Provider:</b> {provider}\n🎰 <b>Game:</b> {game_name}", parse_mode="HTML")
     except: pass
 
@@ -2635,46 +1597,53 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
     session_id = str(uuid.uuid4())
     user_sessions[uid]["encoding_id"] = session_id
 
-    # Initially send result box
-    msg = bot.send_message(chat_id, user_sessions[uid]["result_text"], parse_mode="HTML")
+    # Initially send result box and clear lingering ReplyKeyboard
+    msg = bot.send_message(chat_id, user_sessions[uid]["result_text"], parse_mode="HTML", reply_markup=types.ReplyKeyboardRemove())
     user_sessions[uid]["last_msg"] = msg.message_id
     threading.Thread(target=live_encoding_animation, args=(chat_id, msg.message_id, uid, casino, session_id)).start()
 
 def pick_game(message):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
     game_name = message.text.strip()
-    
-    # Ensure session exists
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_resync": False}
 
-    # Try to find the casino and provider for this game if not set correctly
     current_casino = user_sessions[uid].get("casino")
-    current_prov = user_sessions[uid].get("provider")
-    
+    if current_casino in DISABLED_CASINOS:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
+
     found = False
-    # Check if game exists in current casino first
-    if current_casino in PROVIDERS_DATA:
+    disabled_match = False
+    if current_casino in PROVIDERS_DATA and current_casino not in DISABLED_CASINOS:
         for p_name, games in PROVIDERS_DATA[current_casino].items():
-            if any(g["n"].strip().upper() == game_name.upper() for g in games):
+            if any((g["n"] if isinstance(g, dict) else str(g)).strip().upper() == game_name.upper() for g in games):
                 user_sessions[uid]["provider"] = p_name
-                actual_game = next(g["n"] for g in games if g["n"].strip().upper() == game_name.upper())
+                actual_game = next((g["n"] if isinstance(g, dict) else str(g)) for g in games if (g["n"] if isinstance(g, dict) else str(g)).strip().upper() == game_name.upper())
                 game_name = actual_game
                 found = True
                 break
-    
-    # If not found in current casino, search all casinos
+
     if not found:
         for c_name, c_data in PROVIDERS_DATA.items():
+            if c_name in DISABLED_CASINOS:
+                for p_name, games in c_data.items():
+                    if any((g["n"] if isinstance(g, dict) else str(g)).strip().upper() == game_name.upper() for g in games):
+                        disabled_match = True
+                        break
+                continue
             for p_name, games in c_data.items():
-                if any(g["n"].strip().upper() == game_name.upper() for g in games):
+                if any((g["n"] if isinstance(g, dict) else str(g)).strip().upper() == game_name.upper() for g in games):
                     user_sessions[uid]["casino"] = c_name
                     user_sessions[uid]["provider"] = p_name
-                    actual_game = next(g["n"] for g in games if g["n"].strip().upper() == game_name.upper())
+                    actual_game = next((g["n"] if isinstance(g, dict) else str(g)) for g in games if (g["n"] if isinstance(g, dict) else str(g)).strip().upper() == game_name.upper())
                     game_name = actual_game
                     found = True
                     break
             if found: break
+
+    if not found and disabled_match:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
 
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
@@ -2691,26 +1660,31 @@ def pick_game(message):
 
 def show_games(message):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
     provider_name = message.text.strip()
-    
-    # Ensure session exists
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None}
 
-    # Find the casino for this provider if not set
     current_casino = user_sessions[uid].get("casino")
-    
-    # Case-insensitive check for provider
+    if current_casino in DISABLED_CASINOS:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
+
     found_prov = False
-    if current_casino in PROVIDERS_DATA:
+    disabled_match = False
+    if current_casino in PROVIDERS_DATA and current_casino not in DISABLED_CASINOS:
         for p_name in PROVIDERS_DATA[current_casino].keys():
             if p_name.strip().upper() == provider_name.upper():
                 provider_name = p_name
                 found_prov = True
                 break
-    
+
     if not found_prov:
         for c_name, c_data in PROVIDERS_DATA.items():
+            if c_name in DISABLED_CASINOS:
+                for p_name in c_data.keys():
+                    if p_name.strip().upper() == provider_name.upper():
+                        disabled_match = True
+                        break
+                continue
             for p_name in c_data.keys():
                 if p_name.strip().upper() == provider_name.upper():
                     user_sessions[uid]["casino"] = c_name
@@ -2718,6 +1692,10 @@ def show_games(message):
                     found_prov = True
                     break
             if found_prov: break
+
+    if not found_prov and disabled_match:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
 
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
@@ -2822,6 +1800,11 @@ def show_pattern_callback(call):
         return
     game = user_sessions[uid].get("game", "UNKNOWN")
     casino = user_sessions[uid].get("casino", "UNKNOWN")
+    if casino in DISABLED_CASINOS:
+        try: bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
+        except: pass
+        choose_casino_platform(call)
+        return
     pattern = user_sessions[uid].get("pattern", "No pattern available.")
     
     # 1. Edit the original message to remove all inline buttons
@@ -2965,9 +1948,9 @@ def get_dynamic_reengagement_context(uid, user_name=None):
         user_name = user_sessions.get(uid, {}).get("user_name", "Player")
     safe_name = html.escape(str(user_name).strip()) or "Player"
     
-    all_casinos = list(CASINO_DATA.keys())
+    all_casinos = [c for c in CASINO_DATA.keys() if c not in DISABLED_CASINOS]
     if not all_casinos:
-        all_casinos = ["AGILA CLUB", "INFERNO PLAY", "BUGATTI PLAY"]
+        all_casinos = list(CASINO_DATA.keys()) or ["AGILA CLUB", "INFERNO PLAY", "BUGATTI PLAY"]
         
     last_cas = user_sessions.get(uid, {}).get("casino")
     if not last_cas or last_cas not in all_casinos:
@@ -3150,6 +2133,10 @@ def start_inactivity_scheduler(chat_id, uid, user_name, session_token):
 
 def show_casino_login_direct(message, selected_casino):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
+    if selected_casino in DISABLED_CASINOS:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
     user_sessions[uid]["casino"] = selected_casino
     user_sessions[uid]["is_logged_in"] = True
 
@@ -3187,6 +2174,10 @@ def show_casino_login_direct(message, selected_casino):
 
 def show_games_direct(message, casino_name, provider_name):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
+    if casino_name in DISABLED_CASINOS:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
     user_sessions[uid]["casino"] = casino_name
     user_sessions[uid]["provider"] = provider_name
 
@@ -3212,6 +2203,7 @@ def show_games_direct(message, casino_name, provider_name):
 
 def select_casino_for_game_direct(message, game_name):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
     delete_user_past_msg(message.chat.id, uid)
@@ -3230,16 +2222,28 @@ def select_casino_for_game_direct(message, game_name):
     msg = bot.send_message(message.chat.id, msg_text, reply_markup=kb, parse_mode="HTML")
     user_sessions[uid]["last_msg"] = msg.message_id
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("game_casino_"))
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("game_casino_"))
 def handle_game_casino_selection(call):
     uid = call.from_user.id
-    parts = call.data.split("_", 3)
-    if len(parts) >= 4:
-        casino_name = parts[2]
-        game_name = parts[3]
+    ensure_session(uid, default_logged_in=True)
+    payload = call.data[len("game_casino_"):]
+    casino_name = None
+    game_name = None
+    for known_cas in sorted(CASINO_DATA.keys(), key=len, reverse=True):
+        prefix = f"{known_cas}_"
+        if payload.startswith(prefix):
+            casino_name = known_cas
+            game_name = payload[len(prefix):]
+            break
+    if not casino_name:
+        parts = payload.split("_", 1)
+        if len(parts) == 2:
+            casino_name, game_name = parts[0], parts[1]
+
+    if casino_name and game_name:
         if casino_name in DISABLED_CASINOS:
             try:
-                bot.answer_callback_query(call.id, "Casino Platform you selected is not working right now, please select another casino platform.", show_alert=True)
+                bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
             except: pass
             return
 
@@ -3255,6 +2259,8 @@ def handle_game_casino_selection(call):
                     break
         user_sessions[uid]["provider"] = prov or "JILI"
 
+        try: bot.answer_callback_query(call.id)
+        except: pass
         delete_user_past_msg(call.message.chat.id, uid)
         kb = types.InlineKeyboardMarkup(row_width=1).add(
             types.InlineKeyboardButton("🚀 ANALYZE RNG SEED", callback_data="run_gen"),
@@ -3266,6 +2272,10 @@ def handle_game_casino_selection(call):
 
 def pick_game_direct(message, game_name, casino_name, provider_name):
     uid = message.from_user.id
+    ensure_session(uid, default_logged_in=True)
+    if casino_name in DISABLED_CASINOS:
+        choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        return
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
     delete_user_past_msg(message.chat.id, uid)
@@ -3285,6 +2295,7 @@ def pick_game_direct(message, game_name, casino_name, provider_name):
 @bot.message_handler(func=lambda m: m.text and not m.text.startswith("/"))
 def handle_text_messages(message):
     uid = message.from_user.id
+    ensure_session(uid)
     text = message.text.strip()
     
     # 1. Handlers for BACK navigation buttons
@@ -3293,12 +2304,14 @@ def handle_text_messages(message):
     if text in ["🔙 BACK TO CASINOS", "🔙 BACK CASINOS"]:
         return back_to_casinos_handler(message)
     if text in ["🔙 BACK TO GAMES", "🔙 BACK GAMES"]:
-        prov = user_sessions.get(uid, {}).get("provider")
+        if user_sessions[uid].get("casino") in DISABLED_CASINOS:
+            return choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        prov = user_sessions[uid].get("provider")
         if prov:
             return display_provider_games(message.chat.id, uid, prov)
         return back_to_providers_reply(message)
     if text == "🔙 BACK":
-        if uid in user_sessions and user_sessions[uid].get("provider"):
+        if user_sessions[uid].get("provider"):
             return back_to_providers_reply(message)
         return back_to_casinos_handler(message)
     if text in ["🔄 Re-Generate Pattern", "🔄 Re-Sync RNG Data", "🔄 RE-SYNC RNG DATA"]:
@@ -3314,42 +2327,61 @@ def handle_text_messages(message):
             break
 
     if matched_casino:
-        if uid not in user_sessions:
-            user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": matched_casino, "is_logged_in": True}
-        else:
-            user_sessions[uid]["casino"] = matched_casino
-            user_sessions[uid]["is_logged_in"] = True
+        if matched_casino in DISABLED_CASINOS:
+            return choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
+        user_sessions[uid]["casino"] = matched_casino
+        user_sessions[uid]["is_logged_in"] = True
         return show_casino_login_direct(message, matched_casino)
 
-    # 3. Check if text is a Provider Name
+    # 3. Check if text is a Provider Name (skip disabled casinos first)
     matched_provider = None
-    for cas_data in PROVIDERS_DATA.values():
-        for p_name in cas_data.keys():
+    matched_prov_disabled_only = False
+    current_casino = user_sessions[uid].get("casino")
+    if current_casino in DISABLED_CASINOS:
+        current_casino = None
+        user_sessions[uid]["casino"] = None
+
+    if current_casino and current_casino in PROVIDERS_DATA:
+        for p_name in PROVIDERS_DATA[current_casino].keys():
             if p_name.strip().upper() == text.strip().upper():
                 matched_provider = p_name
                 break
-        if matched_provider: break
+
+    if not matched_provider:
+        for cas_name, cas_data in PROVIDERS_DATA.items():
+            if cas_name in DISABLED_CASINOS:
+                for p_name in cas_data.keys():
+                    if p_name.strip().upper() == text.strip().upper():
+                        matched_prov_disabled_only = True
+                        break
+                continue
+            for p_name in cas_data.keys():
+                if p_name.strip().upper() == text.strip().upper():
+                    matched_provider = p_name
+                    if not current_casino or current_casino not in PROVIDERS_DATA:
+                        current_casino = cas_name
+                        user_sessions[uid]["casino"] = cas_name
+                    break
+            if matched_provider: break
 
     if matched_provider:
-        current_casino = user_sessions.get(uid, {}).get("casino")
-        if not current_casino or current_casino not in PROVIDERS_DATA:
-            for c_name, c_data in PROVIDERS_DATA.items():
-                if matched_provider in c_data:
-                    current_casino = c_name
-                    user_sessions[uid]["casino"] = c_name
-                    break
         if not current_casino:
-            current_casino = list(CASINO_DATA.keys())[0]
+            active_casinos = [c for c in CASINO_DATA.keys() if c not in DISABLED_CASINOS]
+            current_casino = active_casinos[0] if active_casinos else None
+            if not current_casino:
+                return choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
             user_sessions[uid]["casino"] = current_casino
 
         return show_games_direct(message, current_casino, matched_provider)
+    elif matched_prov_disabled_only:
+        return choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
 
-    # 4. Check if text is a Game Name
+    # 4. Check if text is a Game Name (skip disabled casinos)
     matched_game = None
     found_casino_for_game = None
     found_prov_for_game = None
+    matched_game_disabled_only = False
 
-    current_casino = user_sessions.get(uid, {}).get("casino")
     if current_casino and current_casino in PROVIDERS_DATA:
         for p_name, games in PROVIDERS_DATA[current_casino].items():
             for g in games:
@@ -3363,6 +2395,15 @@ def handle_text_messages(message):
 
     if not matched_game:
         for c_name, c_data in PROVIDERS_DATA.items():
+            if c_name in DISABLED_CASINOS:
+                for p_name, games in c_data.items():
+                    for g in games:
+                        gn = g.get("n") if isinstance(g, dict) else str(g)
+                        if gn.strip().upper() == text.strip().upper():
+                            matched_game_disabled_only = True
+                            break
+                    if matched_game_disabled_only: break
+                continue
             for p_name, games in c_data.items():
                 for g in games:
                     gn = g.get("n") if isinstance(g, dict) else str(g)
@@ -3376,16 +2417,16 @@ def handle_text_messages(message):
 
     if matched_game:
         user_sessions[uid]["game"] = matched_game
-        if not user_sessions.get(uid, {}).get("casino"):
+        if not user_sessions[uid].get("casino"):
             return select_casino_for_game_direct(message, matched_game)
         else:
             user_sessions[uid]["provider"] = found_prov_for_game or user_sessions[uid].get("provider")
             return pick_game_direct(message, matched_game, user_sessions[uid]["casino"], user_sessions[uid].get("provider"))
+    elif matched_game_disabled_only:
+        return choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
 
     # Fallback response for normal chat messages
     save_user(uid)
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": False}
 
     # Cancel any running inactivity / follow-up loops immediately
     user_sessions[uid]["followup_token"] = None
@@ -3476,7 +2517,10 @@ def top_games_cmd(message):
     
     header = f"<b>RECOMMENDED FOR TODAY!</b>\n({now_str})\n\n<b>PLATFORM with Exact SEED:</b>\n"
     
-    casinos = list(PROVIDERS_DATA.keys())
+    casinos = [c for c in PROVIDERS_DATA.keys() if c not in DISABLED_CASINOS]
+    if not casinos:
+        bot.send_message(message.chat.id, "⚠️ <b>No active casinos available right now.</b>", parse_mode="HTML")
+        return
     # Limit number of casinos to avoid long messages and satisfy user request
     limit = 4 if num == 10 else 5
     display_casinos = random.sample(casinos, min(limit, len(casinos)))
@@ -3601,45 +2645,6 @@ def restore_users_cmd(message):
     bot.send_message(admin_id_val, f"✅ <b>Database restored!</b> Total users: {len(user_ids)}")
 
 
-def start_bot():
-    if not TOKEN or not TOKEN.strip() or TOKEN.strip() == "YOUR_TELEGRAM_BOT_TOKEN_HERE":
-        print("⚠️ PAALALA: Walang nakalagay na valid Telegram Bot Token.")
-        print("👉 Pumunta sa 'General' tab at i-paste ang iyong Bot Token mula kay @BotFather bago simulan ang bot.")
-        return
-    while True:
-        try:
-            bot.remove_webhook()
-            time.sleep(1)
-            print("🚀 BOT POLLING STARTED...")
-            bot.polling(none_stop=True, interval=1, timeout=20)
-        except Exception as e:
-            err_msg = str(e)
-            if "Unauthorized" in err_msg or "Not Found" in err_msg:
-                print(f"❌ Telegram API Error: Invalid Bot Token! Pakisuri ang Token sa General tab. ({err_msg})")
-                time.sleep(10)
-            else:
-                print(f"Bot Error: {e}")
-                time.sleep(5)
-
-if __name__ == "__main__":
-    # In direct execution, start bot in background and run Flask in main thread
-    t = Thread(target=start_bot)
-    t.daemon = True
-    t.start()
-    
-    port = int(os.environ.get('PORT', 10000))
-    print(f"📡 SERVER STARTING ON PORT {port}...")
-    try:
-        app.run(host='0.0.0.0', port=port)
-    except Exception as e:
-        print(f"⚠️ Web server notice ({e}). Continuing bot polling...")
-        while True:
-            time.sleep(1)
-else:
-    # If imported (e.g. by gunicorn), start bot in background
-    t = Thread(target=start_bot)
-    t.daemon = True
-    t.start()
 
 
 def start_bot():
