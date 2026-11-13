@@ -539,6 +539,9 @@ def ensure_session(uid, default_logged_in=False):
     if uid not in user_sessions:
         user_sessions[uid] = {
             "last_msg": None,
+            "wizard_msg_id": None,
+            "wizard_is_reply_msg": False,
+            "wizard_has_reply_kb": False,
             "last_gen_time": 0,
             "game": None,
             "provider": None,
@@ -549,46 +552,110 @@ def ensure_session(uid, default_logged_in=False):
         }
     return user_sessions[uid]
 
+def _clear_reply_keyboard(chat_id, uid):
+    ensure_session(uid)
+    if user_sessions[uid].get("wizard_has_reply_kb"):
+        try:
+            rm = bot.send_message(chat_id, "⚡", reply_markup=types.ReplyKeyboardRemove())
+            if rm and hasattr(rm, "message_id"):
+                try: bot.delete_message(chat_id, rm.message_id)
+                except: pass
+        except:
+            pass
+        user_sessions[uid]["wizard_has_reply_kb"] = False
+
+def wizard_render(chat_id, uid, text, reply_markup=None, disable_web_page_preview=True, force_new=False):
+    ensure_session(uid)
+    wiz_id = user_sessions[uid].get("wizard_msg_id") or user_sessions[uid].get("last_msg")
+    is_reply_msg = user_sessions[uid].get("wizard_is_reply_msg", False)
+
+    if not force_new and wiz_id and not is_reply_msg:
+        try:
+            bot.edit_message_text(
+                text=text,
+                chat_id=chat_id,
+                message_id=wiz_id,
+                parse_mode="HTML",
+                reply_markup=reply_markup,
+                disable_web_page_preview=disable_web_page_preview
+            )
+            user_sessions[uid]["wizard_msg_id"] = wiz_id
+            user_sessions[uid]["last_msg"] = wiz_id
+            return wiz_id
+        except Exception as e:
+            err_s = str(e).lower()
+            if "message is not modified" in err_s:
+                user_sessions[uid]["wizard_msg_id"] = wiz_id
+                user_sessions[uid]["last_msg"] = wiz_id
+                return wiz_id
+
+    _clear_reply_keyboard(chat_id, uid)
+    if wiz_id:
+        try: bot.delete_message(chat_id, wiz_id)
+        except: pass
+
+    msg = bot.send_message(
+        chat_id,
+        text,
+        parse_mode="HTML",
+        reply_markup=reply_markup,
+        disable_web_page_preview=disable_web_page_preview
+    )
+    mid = msg.message_id if msg and hasattr(msg, "message_id") else None
+    user_sessions[uid]["wizard_msg_id"] = mid
+    user_sessions[uid]["last_msg"] = mid
+    user_sessions[uid]["wizard_is_reply_msg"] = False
+    return mid
+
+def _send_reply_kb_wizard(chat_id, uid, text, reply_markup):
+    ensure_session(uid, default_logged_in=True)
+    wiz_id = user_sessions[uid].get("wizard_msg_id") or user_sessions[uid].get("last_msg")
+    if wiz_id:
+        try: bot.delete_message(chat_id, wiz_id)
+        except: pass
+    msg = bot.send_message(chat_id, text, reply_markup=reply_markup, parse_mode="HTML")
+    mid = msg.message_id if msg and hasattr(msg, "message_id") else None
+    user_sessions[uid]["wizard_msg_id"] = mid
+    user_sessions[uid]["last_msg"] = mid
+    user_sessions[uid]["wizard_is_reply_msg"] = True
+    user_sessions[uid]["wizard_has_reply_kb"] = True
+    return mid
+
 # Dynamic PROVIDERS_DATA and SIGNALS are loaded from dashboard configuration above.
 
 # ================= ANIMATION LOGIC =================
-def system_startup_animation(chat_id, message_id):
-    # Professional Cyber VIP Startup Animation
+def system_startup_animation(chat_id, uid):
     steps = [
         "⚡ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>INITIALIZING...</code>\n<code>[■□□□□□□□□□] 10% · TLS v1.3 SECURE</code>",
-        "🧬 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>LOADING MODULES...</code>\n<code>[■■■■□□□□□□] 40% · MATRIX DEPLOYED</code>",
-        "🔐 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>SECURITY BYPASS...</code>\n<code>[■■■■■■■□□□] 70% · FIREWALL SYNCED</code>",
-        "📡 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>CONNECTING DATABASE...</code>\n<code>[■■■■■■■■■□] 90% · 14ms LATENCY</code>",
+        "🧬 <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>LOADING MODULES...</code>\n<code>[■■■■■□□□□□] 50% · MATRIX DEPLOYED</code>",
         "✅ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>SYSTEM READY & ONLINE</code>\n<code>[■■■■■■■■■■] 100% · READY</code>"
     ]
     for step in steps:
         try:
-            bot.edit_message_text(step, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.6)
+            wizard_render(chat_id, uid, step)
+            time.sleep(0.45)
         except: pass
 
-def logout_animation(chat_id, message_id):
+def logout_animation(chat_id, uid):
     steps = [
         "🔴 <b>DISCONNECTING UPLINK...</b>\n<code>[CLOSING SECURE SOCKET]</code>",
-        "🔴 <b>CLEARING SESSION DATA...</b>\n<code>[CACHE WIPED]</code>",
         "🔴 <b>SESSION TERMINATED SAFELY.</b>"
     ]
     for step in steps:
         try:
-            bot.edit_message_text(step, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.5)
+            wizard_render(chat_id, uid, step)
+            time.sleep(0.4)
         except: pass
 
-def reset_animation(chat_id, message_id):
+def reset_animation(chat_id, uid):
     steps = [
-        "🔄 <b>REBOOTING NEURAL CORE...</b>\n<code>[CYCLE 1/3]</code>",
-        "🔄 <b>RECALIBRATING RNG SENSORS...</b>\n<code>[CYCLE 2/3]</code>",
-        "🔄 <b>HARD RESET COMPLETE & READY.</b>\n<code>[CYCLE 3/3]</code>"
+        "🔄 <b>REBOOTING NEURAL CORE...</b>\n<code>[RECALIBRATING RNG SENSORS]</code>",
+        "🔄 <b>HARD RESET COMPLETE & READY.</b>"
     ]
     for step in steps:
         try:
-            bot.edit_message_text(step, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.5)
+            wizard_render(chat_id, uid, step)
+            time.sleep(0.4)
         except: pass
 
 # Authoritative display_provider_games and live_encoding_animation defined below.
@@ -596,36 +663,15 @@ def reset_animation(chat_id, message_id):
 
 # ================= HELPERS =================
 def delete_user_past_msg(chat_id, uid):
-    if user_sessions.get(uid, {}).get("last_msg"):
-        try: 
-            bot.delete_message(chat_id, user_sessions[uid]["last_msg"])
-        except: 
-            pass
-    if user_sessions.get(uid, {}).get("last_pattern_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_pattern_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_pattern_msg_id"] = None
-    if user_sessions.get(uid, {}).get("last_guide_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_guide_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_guide_msg_id"] = None
-    if user_sessions.get(uid, {}).get("last_channel_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_channel_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_channel_msg_id"] = None
-    if user_sessions.get(uid, {}).get("last_reengagement_msg_id"):
-        try:
-            bot.delete_message(chat_id, user_sessions[uid]["last_reengagement_msg_id"])
-        except:
-            pass
-        user_sessions[uid]["last_reengagement_msg_id"] = None
+    sess = user_sessions.get(uid, {})
+    for k in ["wizard_msg_id", "last_msg", "last_pattern_msg_id", "last_guide_msg_id", "last_channel_msg_id", "last_reengagement_msg_id"]:
+        mid = sess.get(k)
+        if mid:
+            try: bot.delete_message(chat_id, mid)
+            except: pass
+            user_sessions[uid][k] = None
     if uid in user_sessions:
+        user_sessions[uid]["wizard_is_reply_msg"] = False
         user_sessions[uid]["followup_token"] = None
         user_sessions[uid]["active_loop_token"] = None
 
@@ -796,47 +842,20 @@ def agilaclub_cmd(message):
         return
 
     user_sessions[uid]["casino"] = selected_casino
-    
-    # Show SYSTEM CHECK animation
-    msg = bot.send_message(message.chat.id, "⚙️ <b>SYSTEM CHECK...</b>", parse_mode="HTML")
-    system_startup_animation(message.chat.id, msg.message_id)
-    try:
-        bot.delete_message(message.chat.id, msg.message_id)
-    except:
-        pass
-        
+    wizard_render(message.chat.id, uid, "⚙️ <b>SYSTEM CHECK...</b>")
+    system_startup_animation(message.chat.id, uid)
     main_menu(message.chat.id, uid)
 
-@bot.message_handler(commands=["start"])
-def start_cmd(message):
-    uid = message.from_user.id
-    
-    # Check if new for Admin Notification
-    is_new = uid not in user_ids
-    save_user(uid)
-    
-    # Delete previous bot message to keep chat clean
-    delete_user_past_msg(message.chat.id, uid)
-    
-    if uid not in user_sessions:
-        user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": False}
-
-    # Notify Admin ONLY if truly new session
-    if is_new:
-        try:
-            admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
-            if admin_id_val:
-                username_str = f" (@{message.from_user.username})" if message.from_user.username else ""
-                bot.send_message(admin_id_val, f"🆕 <b>NEW USER STARTED BOT</b>\nUser: {message.from_user.first_name}{username_str}\nID: <code>{uid}</code>", parse_mode="HTML")
-        except: pass
-
-    # INTRO SCREEN (Always show this)
-    user_fullname = (f"{message.from_user.first_name} {message.from_user.last_name}".strip() if message.from_user.last_name else message.from_user.first_name)
+def _render_start_wizard(chat_id, uid, user_obj, force_new=False):
+    ensure_session(uid)
+    first_n = getattr(user_obj, "first_name", "Player") or "Player"
+    last_n = getattr(user_obj, "last_name", None)
+    user_fullname = f"{first_n} {last_n}".strip() if last_n else first_n
     user_fullname = html.escape(user_fullname)
-    
-    teleclaw_thinking(message.chat.id, "Initializing Uplink", duration=2)
 
+    img_prefix = f'<a href="{html.escape(INTRO_IMAGE_URL)}">&#8205;</a>' if INTRO_IMAGE_URL else ""
     caption = (
+        f"{img_prefix}"
         f"⚜️ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> ⚜️\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"Mabuhay, <b>{user_fullname}</b>!\n\n"
@@ -849,38 +868,46 @@ def start_cmd(message):
         f"Pindutin ang <b>Start JACKPOT READER</b> upang simulan ang secure system handshake."
     )
 
-    
     kb = types.InlineKeyboardMarkup(row_width=1)
     if not user_sessions[uid].get("is_logged_in"):
-        kb.add(
-            types.InlineKeyboardButton("🚀 Start JACKPOT READER", callback_data="user_login")
-        )
+        kb.add(types.InlineKeyboardButton("🚀 Start JACKPOT READER", callback_data="user_login"))
     else:
         kb.add(types.InlineKeyboardButton("🚀 INITIALIZE SYSTEM", callback_data="intro_proceed"))
-
     kb.add(types.InlineKeyboardButton("❓ How to use the system?", callback_data="how_to_use"))
 
-    try:
-        msg = bot.send_photo(message.chat.id, INTRO_IMAGE_URL, caption=caption, reply_markup=kb, parse_mode="HTML")
-    except:
-        msg = bot.send_message(message.chat.id, caption, reply_markup=kb, parse_mode="HTML")
+    wizard_render(chat_id, uid, caption, reply_markup=kb, disable_web_page_preview=False, force_new=force_new)
 
-    user_sessions[uid]["last_msg"] = msg.message_id
+@bot.message_handler(commands=["start"])
+def start_cmd(message):
+    uid = message.from_user.id
+    is_new = uid not in user_ids
+    save_user(uid)
+    ensure_session(uid)
+    _clear_reply_keyboard(message.chat.id, uid)
+    delete_user_past_msg(message.chat.id, uid)
+
+    if is_new:
+        try:
+            admin_id_val = int(ADMIN_ID) if ADMIN_ID else 0
+            if admin_id_val:
+                username_str = f" (@{message.from_user.username})" if message.from_user.username else ""
+                bot.send_message(admin_id_val, f"🆕 <b>NEW USER STARTED BOT</b>\nUser: {message.from_user.first_name}{username_str}\nID: <code>{uid}</code>", parse_mode="HTML")
+        except: pass
+
+    teleclaw_thinking(message.chat.id, "Initializing Uplink", duration=1)
+    _render_start_wizard(message.chat.id, uid, message.from_user, force_new=True)
 
 @bot.callback_query_handler(func=lambda c: c.data == "how_to_use")
 def handle_how_to_use(call):
     uid = call.from_user.id
     ensure_session(uid)
-    try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    teleclaw_thinking(call.message.chat.id, "Working", duration=2, call_id=call.id)
-    
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
+    teleclaw_thinking(call.message.chat.id, "Working", duration=1, call_id=call.id)
+
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home")
     )
-    
+
     how_to_use_text = (
         "📈 <b>SYSTEM INTEGRATION & OPERATIONS GUIDE</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -897,79 +924,61 @@ def handle_how_to_use(call):
         "• Pagkatapos ma-synchronize ng session, magbalik sa Bot at pindutin ang <b>PROCEED TO SYSTEM</b>.\n"
         "• Piliin ang iyong nais na Provider at i-select ang partikular na laro na iyong sinisimulan.\n\n"
         "5️⃣ <b>DEPLOY PATTERN SEQUENCE</b>\n"
-        "• Pindutin ang <b>SHOW PATTERN</b> upang ma-evaluate ang real-time RTP rate at tamang timing (e.g., Quick Spin, Turbo, o Manual Spacing).\n"
-        "• Sundin nang tumpak ang algorithmic sequence upang maidirekta ang RNG seeds patunud sa high-probability jackpot trigger zones.\n\n"
+        "• Pindutin ang <b>REVEAL INJECTION PATTERN</b> upang ma-evaluate ang real-time RTP rate at tamang timing (e.g., Quick Spin, Turbo, o Manual Spacing).\n"
+        "• Sundin nang tumpak ang algorithmic sequence upang maidirekta ang RNG seeds patungo sa high-probability jackpot trigger zones.\n\n"
         "🛡️ <b>STANDARD SAFETY & PERFORMANCE PROTOCOLS:</b>\n"
-        "• Huwag ibahagi ang iyong active tracker data upang mapanatili the server seed integrity.\n"
-        "• Kung nagbago ang rhythm ng server, gamitin ang <b>Re-Generate Pattern</b> upang makuha ang pinaka-updated na state mapping na lapat sa pinakabagong platform response.\n"
+        "• Huwag ibahagi ang iyong active tracker data upang mapanatili ang server seed integrity.\n"
+        "• Kung nagbago ang rhythm ng server, gamitin ang <b>RE-SYNC RNG DATA</b> upang makuha ang pinaka-updated na state mapping na lapat sa pinakabagong platform response.\n"
         "• Mangyaring huwag gumamit ng VPN proxies upang maiwasan ang latency lag at disconnection sa pagitan ng system reader at game server.\n\n"
         "💬 Para sa mga karagdagang gabay, live analysis updates, at suporta, makipag-ugnayan sa aming opisyal na community portal: 👇\n"
         "👉 https://t.me/+4kq9FVpuAyxjYzI1"
     )
-    msg = bot.send_message(call.message.chat.id, how_to_use_text, reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    wizard_render(call.message.chat.id, uid, how_to_use_text, reply_markup=kb, disable_web_page_preview=True)
 
 @bot.callback_query_handler(func=lambda c: c.data == "back_to_home")
 def back_to_home(call):
     uid = call.from_user.id
-    try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
-    delete_user_past_msg(call.message.chat.id, uid)
-    
+    ensure_session(uid)
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
     teleclaw_thinking(call.message.chat.id, "Working", duration=1, call_id=call.id)
-    
-    # We simulate a "message" object for start_cmd
-    class FakeMsg:
-        def __init__(self, m):
-            self.chat = m.chat
-            self.from_user = m.from_user
-            self.text = "/start"
-            self.message_id = m.message_id
-    
-    start_cmd(FakeMsg(call.message))
+    _render_start_wizard(call.message.chat.id, uid, call.from_user, force_new=False)
 
 @bot.callback_query_handler(func=lambda c: c.data == "user_login")
 def handle_user_login(call):
     uid = call.from_user.id
     ensure_session(uid)
-    try: bot.delete_message(call.message.chat.id, call.message.message_id)
-    except: pass
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    teleclaw_thinking(call.message.chat.id, "Hacking", duration=2, call_id=call.id)
-    
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
+    teleclaw_thinking(call.message.chat.id, "Hacking", duration=1, call_id=call.id)
+
     kb = types.InlineKeyboardMarkup(row_width=1)
     kb.add(
         types.InlineKeyboardButton("📊 CHECK LIVE RNG ANALYSIS", url="https://t.me/PatternReaderbot/winrate"),
         types.InlineKeyboardButton("🚀 PROCEED TO SYSTEM", callback_data="user_login_proceed"),
         types.InlineKeyboardButton("🔙 BACK TO HOME", callback_data="back_to_home")
     )
-    
+
     caption = (
         "📊 <b>REAL-TIME SEED ACCURACY AUDIT</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "Bago simulan ang system tracking mechanics, mangyaring suriin muna ang live RNG metrics ng mga verified platforms na may mataas na win rate at optimal accuracy levels.\n\n"
         "I-click ang <b>CHECK LIVE RNG ANALYSIS</b> sa ibaba, at pagkatapos ay piliin ang <b>PROCEED TO SYSTEM</b> upang magpatuloy."
     )
-    msg = bot.send_message(call.message.chat.id, caption, reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    wizard_render(call.message.chat.id, uid, caption, reply_markup=kb, disable_web_page_preview=True)
 
 @bot.callback_query_handler(func=lambda c: c.data == "user_login_proceed")
 def handle_user_login_proceed(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
     user_sessions[uid]["is_logged_in"] = True
-    
-    teleclaw_thinking(call.message.chat.id, "Working", duration=2, call_id=call.id)
-    
-    # Loading animation
-    msg = bot.send_message(call.message.chat.id, "⏳ <b>INITIALIZING SYSTEM...</b>", parse_mode="HTML")
-    time.sleep(1)
-    bot.edit_message_text("⏳ <b>LOADING MODULES...</b>", call.message.chat.id, msg.message_id, parse_mode="HTML")
-    time.sleep(1)
-    bot.delete_message(call.message.chat.id, msg.message_id)
-    
-    # Proceed to casino selection
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
+
+    teleclaw_thinking(call.message.chat.id, "Working", duration=1, call_id=call.id)
+
+    wizard_render(call.message.chat.id, uid, "⏳ <b>INITIALIZING SYSTEM...</b>")
+    time.sleep(0.6)
+    wizard_render(call.message.chat.id, uid, "⏳ <b>LOADING MODULES...</b>")
+    time.sleep(0.6)
+
     choose_casino_platform(call)
 
 @bot.callback_query_handler(func=lambda c: c.data == "intro_proceed")
@@ -978,17 +987,24 @@ def choose_casino_platform(target, notice_text=None):
         chat_id = target.message.chat.id
         uid = target.from_user.id
         call_id = getattr(target, "id", None)
+        ensure_session(uid, default_logged_in=True)
+        if hasattr(target.message, "message_id"):
+            user_sessions[uid]["wizard_msg_id"] = target.message.message_id
+            user_sessions[uid]["wizard_is_reply_msg"] = False
     elif hasattr(target, "chat"):
         chat_id = target.chat.id
         uid = target.from_user.id
         call_id = None
+        ensure_session(uid, default_logged_in=True)
+        if getattr(target, "message_id", None):
+            try: bot.delete_message(chat_id, target.message_id)
+            except: pass
     else:
         return
 
-    ensure_session(uid, default_logged_in=True)
     user_sessions[uid]["is_logged_in"] = True
-
-    delete_user_past_msg(chat_id, uid)
+    user_sessions[uid]["encoding"] = False
+    user_sessions[uid]["encoding_id"] = None
 
     if call_id:
         try: bot.answer_callback_query(call_id)
@@ -1009,13 +1025,13 @@ def choose_casino_platform(target, notice_text=None):
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "Choose your Casino Platform to load the correct RNG configuration:"
     )
-    msg = bot.send_message(chat_id, msg_text, reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    wizard_render(chat_id, uid, msg_text, reply_markup=kb, disable_web_page_preview=True)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_casino_"))
 def confirm_casino_selection(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
     selected_casino = call.data.replace("set_casino_", "")
 
     if selected_casino in DISABLED_CASINOS:
@@ -1033,9 +1049,7 @@ def confirm_casino_selection(call):
     elif reg_link.startswith("http://"):
         reg_link = reg_link.replace("http://", "https://")
 
-    delete_user_past_msg(call.message.chat.id, uid)
-
-    teleclaw_thinking(call.message.chat.id, "Hacking", duration=3, call_id=call.id)
+    teleclaw_thinking(call.message.chat.id, "Hacking", duration=1, call_id=call.id)
 
     kb = types.InlineKeyboardMarkup(row_width=1)
     if reg_link.startswith("https://"):
@@ -1046,9 +1060,9 @@ def confirm_casino_selection(call):
         types.InlineKeyboardButton("🚀 PROCEED TO SYSTEM", callback_data="open_menu"),
         types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="intro_proceed")
     )
-    
+
     welcome_text = (
-        f"🏛 <b>PLATFORM SELECTED: {selected_casino}</b>\n"
+        f"🏛 <b>PLATFORM SELECTED: {html.escape(selected_casino)}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "To initialize the <b>RNG Synchronization Protocol</b>, please follow these steps:\n\n"
         "1️⃣ Click the <b>Log in to Start</b> button below to open the secure portal.\n"
@@ -1056,8 +1070,7 @@ def confirm_casino_selection(call):
         "3️⃣ Once logged in, return to this bot and click <b>PROCEED TO SYSTEM</b>.\n\n"
         "⚠️ <b>SYSTEM NOTE:</b> The AI algorithm only synchronizes with active sessions detected through our encrypted link. Failure to use the link may result in inaccurate signal patterns."
     )
-    msg = bot.send_message(call.message.chat.id, welcome_text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
-    user_sessions[uid]["last_msg"] = msg.message_id
+    wizard_render(call.message.chat.id, uid, welcome_text, reply_markup=kb, disable_web_page_preview=True)
 
 # show_pattern moved to App.tsx
 
@@ -1072,13 +1085,14 @@ def regenerate_btn(message):
         bot.send_message(chat_id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...")
         return
     user_sessions[uid]["is_resync"] = True
-    msg = bot.send_message(chat_id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
-    run_gen_logic(chat_id, msg.message_id, message.from_user, user_sessions[uid].get("casino", "UNKNOWN"), user_sessions[uid].get("game", "UNKNOWN"), user_sessions[uid].get("provider", "UNKNOWN"))
+    wiz_id = wizard_render(chat_id, uid, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>")
+    run_gen_logic(chat_id, wiz_id, message.from_user, user_sessions[uid].get("casino", "UNKNOWN"), user_sessions[uid].get("game", "UNKNOWN"), user_sessions[uid].get("provider", "UNKNOWN"))
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_game")
 def change_game_callback(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
     if user_sessions[uid].get("casino") in DISABLED_CASINOS:
         try: bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
         except: pass
@@ -1086,65 +1100,76 @@ def change_game_callback(call):
         return
     provider = user_sessions[uid].get("provider")
     if not provider:
-        bot.answer_callback_query(call.id, "⚠️ Provider not found!", show_alert=True)
+        try: bot.answer_callback_query(call.id, "⚠️ Provider not found!", show_alert=True)
+        except: pass
         main_menu(call.message.chat.id, uid)
         return
-    
+
+    try: bot.answer_callback_query(call.id)
+    except: pass
     user_sessions[uid]["encoding"] = False
     user_sessions[uid]["encoding_id"] = None
-    delete_user_past_msg(call.message.chat.id, uid)
     display_provider_games(call.message.chat.id, uid, provider)
 
 @bot.callback_query_handler(func=lambda c: c.data == "change_platform")
 def change_platform_callback(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
     user_sessions[uid]["encoding"] = False
     user_sessions[uid]["encoding_id"] = None
-    
-    # Logout animation
-    logout_animation(call.message.chat.id, call.message.message_id)
-    time.sleep(0.5)
-    
-    # Clear session but keep logged in
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_resync": False}
+
+    try: bot.answer_callback_query(call.id)
+    except: pass
+    logout_animation(call.message.chat.id, uid)
+
+    user_sessions[uid]["game"] = None
+    user_sessions[uid]["provider"] = None
+    user_sessions[uid]["casino"] = None
+    user_sessions[uid]["is_resync"] = False
     choose_casino_platform(call)
 
 @bot.callback_query_handler(func=lambda c: c.data == "reset_system")
 def reset_system_callback(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
-    
-    # Reset animation
-    reset_animation(call.message.chat.id, call.message.message_id)
-    time.sleep(0.5)
-    
-    user_sessions[uid] = {"last_msg": None, "last_gen_time": 0, "game": None, "provider": None, "encoding": False, "casino": None, "is_logged_in": True, "is_resync": False}
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
+    try: bot.answer_callback_query(call.id)
+    except: pass
+
+    reset_animation(call.message.chat.id, uid)
+
+    user_sessions[uid]["game"] = None
+    user_sessions[uid]["provider"] = None
+    user_sessions[uid]["casino"] = None
+    user_sessions[uid]["encoding"] = False
+    user_sessions[uid]["is_resync"] = False
     choose_casino_platform(call)
 
 @bot.callback_query_handler(func=lambda c: c.data == "open_menu")
 def trigger_menu(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
     if user_sessions[uid].get("casino") in DISABLED_CASINOS:
         try: bot.answer_callback_query(call.id, DISABLED_CASINO_MSG, show_alert=True)
         except: pass
         choose_casino_platform(call)
         return
-    delete_user_past_msg(call.message.chat.id, uid)
-    
-    # SYSTEM CHECK ANIMATION
-    msg = bot.send_message(call.message.chat.id, "⚙️ <b>SYSTEM CHECK...</b>", parse_mode="HTML")
-    system_startup_animation(call.message.chat.id, msg.message_id)
-    try: bot.delete_message(call.message.chat.id, msg.message_id)
+    try: bot.answer_callback_query(call.id)
     except: pass
-    
+    user_sessions[uid]["encoding"] = False
+    user_sessions[uid]["encoding_id"] = None
+
+    wizard_render(call.message.chat.id, uid, "⚙️ <b>SYSTEM CHECK...</b>")
+    system_startup_animation(call.message.chat.id, uid)
     main_menu(call.message.chat.id, uid)
 
 @bot.callback_query_handler(func=lambda c: c.data == "run_gen")
 def run_gen(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
     chat_id = call.message.chat.id
 
     if user_sessions[uid].get("casino") in DISABLED_CASINOS:
@@ -1161,38 +1186,22 @@ def run_gen(call):
 
     try: bot.answer_callback_query(call.id)
     except: pass
-    
-    # Delete both the Reader card and the Injection Pattern card when re-syncing
-    old_last_msg = user_sessions.get(uid, {}).get("last_msg")
-    old_pattern_msg = user_sessions.get(uid, {}).get("last_pattern_msg_id")
-    
-    ids_to_delete = set()
-    if old_last_msg: ids_to_delete.add(old_last_msg)
-    if old_pattern_msg: ids_to_delete.add(old_pattern_msg)
-    if call.message and hasattr(call.message, "message_id"):
-        ids_to_delete.add(call.message.message_id)
-        
-    for mid in ids_to_delete:
-        try:
-            bot.delete_message(chat_id, mid)
-        except:
-            pass
-            
-    user_sessions[uid]["last_msg"] = None
-    user_sessions[uid]["last_pattern_msg_id"] = None
-    if call.message and ("INJECTION" in (call.message.text or "") or "READER" in (call.message.text or "")):
+
+    user_sessions[uid]["encoding"] = False
+    user_sessions[uid]["encoding_id"] = None
+
+    msg_text_upper = (call.message.text or "").upper() if call.message else ""
+    if "INJECTION" in msg_text_upper or "READER" in msg_text_upper:
         user_sessions[uid]["is_resync"] = True
 
-    msg = bot.send_message(chat_id, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>", parse_mode="HTML")
-    message_id = msg.message_id
-    user_sessions[uid]["last_msg"] = message_id
-        
+    wiz_id = wizard_render(chat_id, uid, "⚡ <b>RE-INITIALIZING ALGORITHM...</b>")
+
     run_gen_logic(
-        chat_id, 
-        message_id, 
-        call.from_user, 
-        user_sessions[uid].get("casino", "UNKNOWN"), 
-        user_sessions[uid].get("game", "UNKNOWN"), 
+        chat_id,
+        wiz_id,
+        call.from_user,
+        user_sessions[uid].get("casino", "UNKNOWN"),
+        user_sessions[uid].get("game", "UNKNOWN"),
         user_sessions[uid].get("provider", "UNKNOWN")
     )
 
@@ -1426,15 +1435,18 @@ def display_provider_games(chat_id, uid, provider_name):
     kb.add(types.KeyboardButton("🔙 BACK TO PROVIDERS"), types.KeyboardButton("🔙 BACK TO CASINOS"))
     kb.add(*[types.KeyboardButton(n) for n in display_names])
 
-    msg = bot.send_message(chat_id, f"🎰 <b>{html.escape(provider_name)}</b>\nShowing {len(display_names)} Games Available:", reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    _send_reply_kb_wizard(
+        chat_id,
+        uid,
+        f"🏛 Platform: <b>{html.escape(str(selected_casino))}</b>\n🎰 Provider: <b>{html.escape(provider_name)}</b>\n━━━━━━━━━━━━━━━━━━━━━━\nShowing {len(display_names)} Games Available. Select your target game below:",
+        kb
+    )
 
 def back_to_providers_reply(message):
     uid = message.from_user.id
     ensure_session(uid, default_logged_in=True)
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
-    delete_user_past_msg(message.chat.id, uid)
     if user_sessions[uid].get("casino") in DISABLED_CASINOS:
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
@@ -1442,48 +1454,58 @@ def back_to_providers_reply(message):
 
 def main_menu(chat_id, uid):
     ensure_session(uid, default_logged_in=True)
-    delete_user_past_msg(chat_id, uid)
-    
     selected_casino = user_sessions[uid].get("casino")
     if not selected_casino or selected_casino in DISABLED_CASINOS:
         notice = f"⚠️ <b>{DISABLED_CASINO_MSG}</b>" if selected_casino in DISABLED_CASINOS else None
         _open_casino_selector(chat_id, uid, notice_text=notice)
         return
     providers_list = list(PROVIDERS_DATA.get(selected_casino, {}).keys())
-    
+
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add(types.KeyboardButton("🔙 BACK TO CASINOS"))
     kb.add(*[types.KeyboardButton(p) for p in providers_list])
-    msg = bot.send_message(chat_id, "⚙️ <b>MAIN CONTROL PANEL:</b>\n━━━━━━━━━━━━━━━━━━━━━━\nSelect your preferred Slot Provider to begin analysis:", reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
     user_sessions[uid]["encoding"] = False
+    _send_reply_kb_wizard(
+        chat_id,
+        uid,
+        f"🏛 Platform: <b>{html.escape(str(selected_casino))}</b>\n⚙️ <b>MAIN CONTROL PANEL:</b>\n━━━━━━━━━━━━━━━━━━━━━━\nSelect your preferred Slot Provider to begin analysis:",
+        kb
+    )
 
 def back_to_casinos_handler(message):
     uid = message.from_user.id
     ensure_session(uid, default_logged_in=True)
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
-    delete_user_past_msg(message.chat.id, uid)
     user_sessions[uid]["casino"] = None
+    user_sessions[uid]["provider"] = None
+    user_sessions[uid]["game"] = None
     choose_casino_platform(message)
+
+def _build_signal_inline_kb(is_resync=False):
+    inline_kb = types.InlineKeyboardMarkup(row_width=1)
+    if not is_resync:
+        inline_kb.add(types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"))
+    inline_kb.add(
+        types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
+        types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
+        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
+        types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
+    )
+    return inline_kb
 
 def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
     uid = user_obj.id if hasattr(user_obj, "id") else user_obj
     ensure_session(uid, default_logged_in=True)
     if casino in DISABLED_CASINOS:
-        try: bot.delete_message(chat_id, message_id)
-        except: pass
         _open_casino_selector(chat_id, uid, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
     if (time.time() - user_sessions[uid].get("last_gen_time", 0)) < 15:
-        try: bot.delete_message(chat_id, message_id)
-        except: pass
         bot.send_message(chat_id, "⚠️ SYSTEM BUSY. Pattern is active.\nPlease wait a few seconds...")
         return
 
     user_sessions[uid]["last_gen_time"] = time.time()
-    
-    # 4-STAGE REALISTIC 𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑 TELEMETRY ANIMATION
+
     stages = [
         {
             "title": "⚡ <b>𝐒𝐋𝐎𝐓 𝐉𝐀𝐂𝐊𝐏𝐎𝐓 𝐑𝐄𝐀𝐃𝐄𝐑</b> · <code>UPLINK</code>",
@@ -1524,11 +1546,8 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
             f"<code>{stage['detail']}</code>\n"
             f"<code>[{meter}] {stage['percent']}% · {stage['ping']}</code>"
         )
-        try:
-            bot.edit_message_text(status_text, chat_id, message_id, parse_mode="HTML")
-            time.sleep(0.75)
-        except:
-            pass
+        wizard_render(chat_id, uid, status_text)
+        time.sleep(0.65)
 
     # Notify Admin
     try:
@@ -1539,45 +1558,37 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
             bot.send_message(admin_id_val, f"📊 <b>SIGNAL GENERATED</b>\nUser: {name}{username} (<code>{uid}</code>)\n🏛 <b>Casino:</b> {casino}\n🎮 <b>Provider:</b> {provider}\n🎰 <b>Game:</b> {game_name}", parse_mode="HTML")
     except: pass
 
-    # Delete the generating message and previous pattern message before showing result
-    try: bot.delete_message(chat_id, message_id)
-    except: pass
-    if user_sessions.get(uid, {}).get("last_pattern_msg_id"):
-        try: bot.delete_message(chat_id, user_sessions[uid]["last_pattern_msg_id"])
-        except: pass
-        user_sessions[uid]["last_pattern_msg_id"] = None
-
-    # Find if game has Buy Bonus
+    # Find if game has Buy Bonus safely
     has_bb = False
     provider_games = PROVIDERS_DATA.get(casino, {}).get(provider, [])
     for g in provider_games:
-        if g["n"] == game_name:
-            has_bb = (g.get("bb", 0) == 1)
+        gn = g.get("n") if isinstance(g, dict) else str(g)
+        if gn == game_name:
+            has_bb = (g.get("bb", 0) == 1) if isinstance(g, dict) else False
             break
 
-    # Filtering signals
     if has_bb:
         valid_signals = SIGNALS
     else:
         valid_signals = [s for s in SIGNALS if "Buy Bonus" not in s]
-    
-    if "PG" in provider.upper():
+
+    if "PG" in str(provider or "").upper():
         valid_signals = [s for s in valid_signals if "Turbo" not in s]
-    
-    if not valid_signals: valid_signals = SIGNALS
+
+    if not valid_signals:
+        valid_signals = SIGNALS
 
     if "used_signals" not in user_sessions[uid]:
         user_sessions[uid]["used_signals"] = []
-    
+
     available = [s for s in valid_signals if s not in user_sessions[uid]["used_signals"]]
     if not available:
         user_sessions[uid]["used_signals"] = [s for s in user_sessions[uid]["used_signals"] if s not in valid_signals]
         available = valid_signals
-    
+
     selected_pattern = random.choice(available)
     user_sessions[uid]["used_signals"].append(selected_pattern)
 
-    # Result data
     ph_now = datetime.utcnow() + timedelta(hours=8)
     v_until = (ph_now + timedelta(minutes=random.randint(30, 45))).strftime("%I:%M %p")
     fake_id = str(uuid.uuid4())[:8].upper()
@@ -1593,14 +1604,31 @@ def run_gen_logic(chat_id, message_id, user_obj, casino, game_name, provider):
     user_sessions[uid]["game"] = game_name
     user_sessions[uid]["provider"] = provider
     user_sessions[uid]["casino"] = casino
-    user_sessions[uid]["encoding"] = True 
+    user_sessions[uid]["encoding"] = True
     session_id = str(uuid.uuid4())
     user_sessions[uid]["encoding_id"] = session_id
 
-    # Initially send result box and clear lingering ReplyKeyboard
-    msg = bot.send_message(chat_id, user_sessions[uid]["result_text"], parse_mode="HTML", reply_markup=types.ReplyKeyboardRemove())
-    user_sessions[uid]["last_msg"] = msg.message_id
-    threading.Thread(target=live_encoding_animation, args=(chat_id, msg.message_id, uid, casino, session_id)).start()
+    inline_kb = _build_signal_inline_kb(is_resync=is_resync)
+    if is_resync:
+        ready_footer = (
+            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
+            f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>"
+        )
+    else:
+        ready_footer = (
+            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
+            f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
+            f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
+        )
+
+    # Render in-place on the SAME 1-message wizard with buttons immediately attached
+    wiz_id = wizard_render(
+        chat_id,
+        uid,
+        f"{user_sessions[uid]['result_text']}\n\n━━━━━━━━━━━━━━━━━━━━━━\n{ready_footer}",
+        reply_markup=inline_kb
+    )
+    threading.Thread(target=live_encoding_animation, args=(chat_id, wiz_id, uid, casino, session_id, is_resync), daemon=True).start()
 
 def pick_game(message):
     uid = message.from_user.id
@@ -1609,6 +1637,8 @@ def pick_game(message):
 
     current_casino = user_sessions[uid].get("casino")
     if current_casino in DISABLED_CASINOS:
+        try: bot.delete_message(message.chat.id, message.message_id)
+        except: pass
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
 
@@ -1641,22 +1671,29 @@ def pick_game(message):
                     break
             if found: break
 
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
+
     if not found and disabled_match:
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
 
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    delete_user_past_msg(message.chat.id, uid)
     user_sessions[uid]["game"] = game_name
     user_sessions[uid]["is_resync"] = False
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         types.InlineKeyboardButton("🚀 ANALYZE RNG SEED", callback_data="run_gen"),
         types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
-        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu")
+        types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
+        types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
     )
-    msg = bot.send_message(message.chat.id, f"🎯 <b>SELECTED:</b> <b>{html.escape(game_name)}</b>\nClick below to start RNG sync.", reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    cas_label = user_sessions[uid].get("casino") or "CASINO"
+    prov_label = user_sessions[uid].get("provider") or "PROVIDER"
+    wizard_render(
+        message.chat.id,
+        uid,
+        f"🏛 Platform: <b>{html.escape(str(cas_label))}</b>\n🎰 Provider: <b>{html.escape(str(prov_label))}</b>\n🎯 <b>SELECTED GAME:</b> <b>{html.escape(game_name)}</b>\n━━━━━━━━━━━━━━━━━━━━━━\nClick below to start real-time RNG seed synchronization:",
+        reply_markup=kb
+    )
 
 def show_games(message):
     uid = message.from_user.id
@@ -1665,6 +1702,8 @@ def show_games(message):
 
     current_casino = user_sessions[uid].get("casino")
     if current_casino in DISABLED_CASINOS:
+        try: bot.delete_message(message.chat.id, message.message_id)
+        except: pass
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
 
@@ -1693,111 +1732,61 @@ def show_games(message):
                     break
             if found_prov: break
 
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
+
     if not found_prov and disabled_match:
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
 
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    delete_user_past_msg(message.chat.id, uid)
     display_provider_games(message.chat.id, uid, provider_name)
 
-def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_id):
-    try:
-        res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-        init_telemetry = (
-            f"{res_text}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"⚡ <b>RNG SYNCHRONIZATION ACTIVE:</b>\n"
-            f"<code>[SYS_SYNC] >> INITIATING PLATFORM HANDSHAKE...</code>"
-        )
-        bot.edit_message_text(
-            init_telemetry, 
-            chat_id, message_id, parse_mode="HTML"
-        )
-    except: pass
-    time.sleep(1.2)
-
+def live_encoding_animation(chat_id, message_id, uid, selected_casino, session_id, is_resync=False):
     safe_casino = html.escape(str(selected_casino))
+    inline_kb = _build_signal_inline_kb(is_resync=is_resync)
     frames = [
         (
             f"📡 <b>LIVE RNG STREAM:</b>\n"
             f"<code>[GATEWAY] >> CONNECTED TO {safe_casino.upper()}</code>\n"
-            f"<code>[LATENCY] >> 11ms · JITTER: 0.1ms</code>\n"
-            f"<code>[METER]   [■■■■■■■■■■] 100% ONLINE</code>"
+            f"<code>[LATENCY] >> 11ms · RNG PEAK DETECTED</code>"
         ),
         (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[RNG_SEED]>> DYNAMIC ENTROPY STREAMING</code>\n"
-            f"<code>[VOLAT]   >> SURGE COEFFICIENT: OPTIMAL (x1.42)</code>\n"
-            f"<code>[STATUS]  >> PATTERN TIME-LOCKED TO SESSION</code>"
-        ),
-        (
-            f"📡 <b>LIVE RNG STREAM:</b>\n"
-            f"<code>[MONITOR] >> LIVE RTP PEAK DETECTED</code>\n"
-            f"<code>[WINDOW]  >> VALIDATION RUNNING · DO NOT REFRESH</code>\n"
-            f"<code>[SIGNAL]  >> READY FOR EXECUTION</code>"
+            f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
+            f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>"
+            + ("" if is_resync else "\n<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>")
         )
     ]
-    
+
     for frame in frames:
+        time.sleep(1.3)
         if uid not in user_sessions or user_sessions[uid].get("encoding") == False or user_sessions[uid].get("encoding_id") != session_id:
-            break
+            return
         try:
             res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
             bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=message_id,
                 text=f"{res_text}\n\n━━━━━━━━━━━━━━━━━━━━━━\n{frame}",
-                parse_mode="HTML"
-            )
-        except Exception:
-            break 
-        time.sleep(1.2)
-
-    # FINAL STEP: Show Status and Buttons after animation
-    if uid in user_sessions and user_sessions[uid].get("encoding_id") == session_id:
-        user_sessions[uid]["encoding"] = False
-        res_text = user_sessions[uid].get("result_text", "SYSTEM ERROR")
-        is_resync = user_sessions[uid].get("is_resync", False)
-        
-        inline_kb = types.InlineKeyboardMarkup(row_width=1)
-        if not is_resync:
-            inline_kb.add(types.InlineKeyboardButton("👁️ REVEAL INJECTION PATTERN", callback_data="show_pattern"))
-        inline_kb.add(
-            types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"), 
-            types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
-            types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
-            types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
-        )
-        
-        if is_resync:
-            final_footer = (
-                f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
-                f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>"
-            )
-        else:
-            final_footer = (
-                f"🟢 <b>STATUS:</b> <code>PATTERN LOCKED & SYNCED</code>\n"
-                f"<code>[CORE] >> EXECUTE BEFORE EXPIRATION WINDOW</code>\n"
-                f"<blockquote>💡 <i>Paalala: Mag-log in muna sa casino bago simulan ang pattern sequence.</i></blockquote>"
-            )
-        try:
-            bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=f"{res_text}\n\n━━━━━━━━━━━━━━━━━━━━━━\n{final_footer}",
                 parse_mode="HTML",
                 reply_markup=inline_kb
             )
-        except: pass
+        except Exception:
+            pass
+
+    if uid in user_sessions and user_sessions[uid].get("encoding_id") == session_id:
+        user_sessions[uid]["encoding"] = False
 
 @bot.callback_query_handler(func=lambda c: c.data == "show_pattern")
 def show_pattern_callback(call):
     uid = call.from_user.id
     if uid not in user_sessions:
-        bot.answer_callback_query(call.id, "⚠️ Session expired. Please /start again.", show_alert=True)
+        try: bot.answer_callback_query(call.id, "⚠️ Session expired. Please /start again.", show_alert=True)
+        except: pass
         return
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
+    user_sessions[uid]["encoding"] = False
+    user_sessions[uid]["encoding_id"] = None
+
     game = user_sessions[uid].get("game", "UNKNOWN")
     casino = user_sessions[uid].get("casino", "UNKNOWN")
     if casino in DISABLED_CASINOS:
@@ -1806,29 +1795,14 @@ def show_pattern_callback(call):
         choose_casino_platform(call)
         return
     pattern = user_sessions[uid].get("pattern", "No pattern available.")
-    
-    # 1. Edit the original message to remove all inline buttons
-    try:
-        bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
-    except:
-        pass
-
-    # Delete the previous INJECTION PATTERN VERIFIED message if it exists
-    prev_pattern_id = user_sessions[uid].get("last_pattern_msg_id")
-    if prev_pattern_id:
-        try:
-            bot.delete_message(call.message.chat.id, prev_pattern_id)
-        except:
-            pass
-        user_sessions[uid]["last_pattern_msg_id"] = None
 
     safe_game = html.escape(str(game))
     safe_casino = html.escape(str(casino))
-    
+
     now_pht = datetime.utcnow() + timedelta(hours=8)
     gen_date = now_pht.strftime("%B %d, %Y")
     gen_time = now_pht.strftime("%I:%M %p PHT")
-    
+
     code_pattern_box, badge_emoji = format_pattern_code(pattern)
     emoji_line = f"{badge_emoji}\n" if badge_emoji else ""
 
@@ -1843,11 +1817,10 @@ def show_pattern_callback(call):
         f"<blockquote>⚠️ <b>Paalala:</b> Sundin nang tumpak ang pattern sequence bago matapos ang expiration window.</blockquote>"
     )
     try:
-        bot.answer_callback_query(call.id, "📋 Pattern revealed below!")
+        bot.answer_callback_query(call.id, "📋 Injection Pattern Revealed!")
     except:
         pass
 
-    # Transfer navigation and re-sync buttons to the INJECTION PATTERN VERIFIED message (Reveal button is omitted since pattern is now revealed)
     pattern_kb = types.InlineKeyboardMarkup(row_width=1)
     pattern_kb.add(
         types.InlineKeyboardButton("🔄 RE-SYNC RNG DATA", callback_data="run_gen"),
@@ -1856,12 +1829,7 @@ def show_pattern_callback(call):
         types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="change_platform")
     )
 
-    try:
-        sent_pattern_msg = bot.send_message(call.message.chat.id, alert_text, parse_mode="HTML", reply_markup=pattern_kb)
-        if sent_pattern_msg and hasattr(sent_pattern_msg, "message_id"):
-            user_sessions[uid]["last_pattern_msg_id"] = sent_pattern_msg.message_id
-    except Exception as e:
-        print("Error sending pattern message:", e)
+    wizard_render(call.message.chat.id, uid, alert_text, reply_markup=pattern_kb)
 
 # ================= ASIA TOP HIT GAMES & DYNAMIC RE-ENGAGEMENT SYSTEM =================
 ASIA_TOP_TRENDING_GAMES = [
@@ -2134,6 +2102,8 @@ def start_inactivity_scheduler(chat_id, uid, user_name, session_token):
 def show_casino_login_direct(message, selected_casino):
     uid = message.from_user.id
     ensure_session(uid, default_logged_in=True)
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
     if selected_casino in DISABLED_CASINOS:
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
@@ -2146,10 +2116,6 @@ def show_casino_login_direct(message, selected_casino):
     elif reg_link.startswith("http://"):
         reg_link = reg_link.replace("http://", "https://")
 
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    delete_user_past_msg(message.chat.id, uid)
-
     kb = types.InlineKeyboardMarkup(row_width=1)
     if reg_link.startswith("https://"):
         kb.add(types.InlineKeyboardButton("🔐 LOG IN TO START", web_app=types.WebAppInfo(url=reg_link)))
@@ -2161,7 +2127,7 @@ def show_casino_login_direct(message, selected_casino):
     )
 
     welcome_text = (
-        f"🏛 <b>PLATFORM SELECTED: {selected_casino}</b>\n"
+        f"🏛 <b>PLATFORM SELECTED: {html.escape(selected_casino)}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "To initialize the <b>RNG Synchronization Protocol</b>, follow these instructions:\n\n"
         "1️⃣ Click <b>LOG IN TO START</b> below to open the secure platform.\n"
@@ -2169,12 +2135,13 @@ def show_casino_login_direct(message, selected_casino):
         "3️⃣ Return here and click <b>PROCEED TO SYSTEM</b>.\n\n"
         "<blockquote>⚠️ <i>The AI algorithm only synchronizes with active sessions detected through our link.</i></blockquote>"
     )
-    msg = bot.send_message(message.chat.id, welcome_text, parse_mode="HTML", reply_markup=kb)
-    user_sessions[uid]["last_msg"] = msg.message_id
+    wizard_render(message.chat.id, uid, welcome_text, reply_markup=kb, disable_web_page_preview=True)
 
 def show_games_direct(message, casino_name, provider_name):
     uid = message.from_user.id
     ensure_session(uid, default_logged_in=True)
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
     if casino_name in DISABLED_CASINOS:
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
@@ -2183,10 +2150,6 @@ def show_games_direct(message, casino_name, provider_name):
 
     games_list = PROVIDERS_DATA.get(casino_name, {}).get(provider_name, [])
     display_names = [g["n"] if isinstance(g, dict) else str(g) for g in games_list]
-
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    delete_user_past_msg(message.chat.id, uid)
 
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     kb.add(types.KeyboardButton("🔙 BACK TO PROVIDERS"), types.KeyboardButton("🔙 BACK TO CASINOS"))
@@ -2198,15 +2161,13 @@ def show_games_direct(message, casino_name, provider_name):
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"Showing {len(display_names)} Games Available. Select your target game below:"
     )
-    msg = bot.send_message(message.chat.id, msg_text, reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    _send_reply_kb_wizard(message.chat.id, uid, msg_text, kb)
 
 def select_casino_for_game_direct(message, game_name):
     uid = message.from_user.id
     ensure_session(uid, default_logged_in=True)
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
-    delete_user_past_msg(message.chat.id, uid)
 
     kb = types.InlineKeyboardMarkup(row_width=2)
     cas_btns = [types.InlineKeyboardButton(f"🏛 {casino}", callback_data=f"game_casino_{casino}_{game_name}") for casino in CASINO_DATA.keys()]
@@ -2219,13 +2180,13 @@ def select_casino_for_game_direct(message, game_name):
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"Pumili muna ng Casino Platform kung saan mo lalaruin ang <b>{html.escape(game_name)}</b> bago i-synchronize ang RNG pattern:"
     )
-    msg = bot.send_message(message.chat.id, msg_text, reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    wizard_render(message.chat.id, uid, msg_text, reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("game_casino_"))
 def handle_game_casino_selection(call):
     uid = call.from_user.id
     ensure_session(uid, default_logged_in=True)
+    user_sessions[uid]["wizard_msg_id"] = call.message.message_id
     payload = call.data[len("game_casino_"):]
     casino_name = None
     game_name = None
@@ -2261,26 +2222,30 @@ def handle_game_casino_selection(call):
 
         try: bot.answer_callback_query(call.id)
         except: pass
-        delete_user_past_msg(call.message.chat.id, uid)
         kb = types.InlineKeyboardMarkup(row_width=1).add(
             types.InlineKeyboardButton("🚀 ANALYZE RNG SEED", callback_data="run_gen"),
             types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
+            types.InlineKeyboardButton("🔙 BACK TO PROVIDERS", callback_data="open_menu"),
             types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="intro_proceed")
         )
-        msg = bot.send_message(call.message.chat.id, f"🎯 <b>SELECTED:</b> <b>{html.escape(game_name)}</b>\n🏛 <b>PLATFORM:</b> <b>{html.escape(casino_name)}</b>\n\nClick below to start RNG sync.", reply_markup=kb, parse_mode="HTML")
-        user_sessions[uid]["last_msg"] = msg.message_id
+        wizard_render(
+            call.message.chat.id,
+            uid,
+            f"🎯 <b>SELECTED:</b> <b>{html.escape(game_name)}</b>\n🏛 <b>PLATFORM:</b> <b>{html.escape(casino_name)}</b>\n\nClick below to start RNG sync.",
+            reply_markup=kb
+        )
 
 def pick_game_direct(message, game_name, casino_name, provider_name):
     uid = message.from_user.id
     ensure_session(uid, default_logged_in=True)
+    try: bot.delete_message(message.chat.id, message.message_id)
+    except: pass
     if casino_name in DISABLED_CASINOS:
         choose_casino_platform(message, notice_text=f"⚠️ <b>{DISABLED_CASINO_MSG}</b>")
         return
-    try: bot.delete_message(message.chat.id, message.message_id)
-    except: pass
-    delete_user_past_msg(message.chat.id, uid)
 
     user_sessions[uid]["game"] = game_name
+    user_sessions[uid]["is_resync"] = False
     kb = types.InlineKeyboardMarkup(row_width=1).add(
         types.InlineKeyboardButton("🚀 ANALYZE RNG SEED", callback_data="run_gen"),
         types.InlineKeyboardButton("🔙 BACK TO GAMES", callback_data="change_game"),
@@ -2288,8 +2253,12 @@ def pick_game_direct(message, game_name, casino_name, provider_name):
         types.InlineKeyboardButton("🔙 BACK TO CASINOS", callback_data="intro_proceed")
     )
     cas_display = f"\n🏛 Platform: <b>{html.escape(casino_name)}</b>" if casino_name else ""
-    msg = bot.send_message(message.chat.id, f"🎯 <b>SELECTED:</b> <b>{html.escape(game_name)}</b>{cas_display}\n\nClick below to start RNG sync.", reply_markup=kb, parse_mode="HTML")
-    user_sessions[uid]["last_msg"] = msg.message_id
+    wizard_render(
+        message.chat.id,
+        uid,
+        f"🎯 <b>SELECTED:</b> <b>{html.escape(game_name)}</b>{cas_display}\n\nClick below to start RNG sync.",
+        reply_markup=kb
+    )
 
 # Centralized message handler to avoid conflicts and ensure new games/providers are caught
 @bot.message_handler(func=lambda m: m.text and not m.text.startswith("/"))
