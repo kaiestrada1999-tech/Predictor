@@ -24,7 +24,7 @@ ADMIN_ID = os.environ.get("ADMIN_ID") or ""
 
 # URL ng Image para sa Intro
 INTRO_IMAGE_URL = "https://i.imghippo.com/files/jFEp1747BHI.png" 
-OFFICIAL_CHANNEL_URL = "https://t.me/+4kq9FVpuAyxjYzI1"
+OFFICIAL_CHANNEL_URL = "https://t.me/+cMuWJDUye1Y3NTE1"
 
 # ================= CASINO LINKS DATABASE =================
 CASINO_DATA = {
@@ -931,7 +931,7 @@ def handle_how_to_use(call):
         "• Kung nagbago ang rhythm ng server, gamitin ang <b>RE-SYNC RNG DATA</b> upang makuha ang pinaka-updated na state mapping na lapat sa pinakabagong platform response.\n"
         "• Mangyaring huwag gumamit ng VPN proxies upang maiwasan ang latency lag at disconnection sa pagitan ng system reader at game server.\n\n"
         "💬 Para sa mga karagdagang gabay, live analysis updates, at suporta, makipag-ugnayan sa aming opisyal na community portal: 👇\n"
-        "👉 https://t.me/+4kq9FVpuAyxjYzI1"
+        "👉 https://t.me/+cMuWJDUye1Y3NTE1"
     )
     wizard_render(call.message.chat.id, uid, how_to_use_text, reply_markup=kb, disable_web_page_preview=True)
 
